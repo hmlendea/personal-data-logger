@@ -50,6 +50,7 @@ namespace PersonalDataLogger
         {
             PersonalLogManagerSettings personalLogManagerSettings = new();
             ImapSettings imapSettings = new();
+            PersonalSettings personalSettings = new();
             NuciLoggerSettings loggerSettings = new();
 
             IConfiguration config = new ConfigurationBuilder()
@@ -58,11 +59,13 @@ namespace PersonalDataLogger
 
             config.Bind(nameof(PersonalLogManagerSettings), personalLogManagerSettings);
             config.Bind(nameof(ImapSettings), imapSettings);
+            config.Bind(nameof(PersonalSettings), personalSettings);
             config.Bind(nameof(NuciLoggerSettings), loggerSettings);
 
             return new ServiceCollection()
                 .AddSingleton(personalLogManagerSettings)
                 .AddSingleton(imapSettings)
+                .AddSingleton(personalSettings)
                 .AddSingleton(loggerSettings)
                 .AddSingleton<IOpsGenieEmailProcessor, OpsGenieEmailProcessor>()
                 .AddSingleton<IEmailProcessor, EmailProcessor>()

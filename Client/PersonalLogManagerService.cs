@@ -27,6 +27,12 @@ namespace PersonalDataLogger.Client
         public Task SendPersonalLogToManager(
             DateTimeOffset timestamp,
             string template)
+            => SendPersonalLogToManager(timestamp, template, []);
+
+        public Task SendPersonalLogToManager(
+            DateTimeOffset timestamp,
+            string template,
+            Dictionary<string, string> data)
         {
             DateTimeOffset romaniaDateTime = ConvertToRomanianTime(timestamp);
 
@@ -34,7 +40,8 @@ namespace PersonalDataLogger.Client
                 romaniaDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 romaniaDateTime.ToString("HH:mm", CultureInfo.InvariantCulture),
                 romaniaDateTime.ToString("zzz", CultureInfo.InvariantCulture),
-                template);
+                template,
+                data);
         }
 
         public async Task SendPersonalLogToManager(
@@ -42,6 +49,14 @@ namespace PersonalDataLogger.Client
             string time,
             string timeZone,
             string template)
+            => await SendPersonalLogToManager(date, time, timeZone, template, []);
+
+        public async Task SendPersonalLogToManager(
+            string date,
+            string time,
+            string timeZone,
+            string template,
+            Dictionary<string, string> data)
         {
             IEnumerable<LogInfo> logInfos =
             [
@@ -74,7 +89,8 @@ namespace PersonalDataLogger.Client
                             Date = date,
                             Time = time,
                             TimeZone = timeZone,
-                            Template = template
+                            Template = template,
+                            Data = data
                         },
                         authorisationInfo,
                         "/PersonalLog");

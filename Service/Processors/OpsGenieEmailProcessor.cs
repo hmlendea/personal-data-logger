@@ -1,10 +1,13 @@
+using System.Collections.Generic;
 using PersonalDataLogger.Client;
+using PersonalDataLogger.Configuration;
 using PersonalDataLogger.Service.Models;
 
 namespace PersonalDataLogger.Service.Processors
 {
     public class OpsGenieEmailProcessor(
-        IPersonalLogManagerService personalLogManagerService)
+        IPersonalLogManagerService personalLogManagerService,
+        PersonalSettings settings)
         : IOpsGenieEmailProcessor
     {
         public void ProcessEmail(AvailableEmail email)
@@ -15,7 +18,11 @@ namespace PersonalDataLogger.Service.Processors
                 {
                     personalLogManagerService.SendPersonalLogToManager(
                         email.Timestamp,
-                        "WorkOnCallShiftBeginning");
+                        "WorkOnCallShiftBeginning",
+                        new Dictionary<string, string>()
+                        {
+                            ["employer_name"] = settings.EmployerName
+                        });
                 }
                 else if (email.Subject.EndsWith("is ending now"))
                 {

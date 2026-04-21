@@ -10,23 +10,18 @@ using NuciLog;
 using NuciLog.Configuration;
 using NuciLog.Core;
 using PersonalDataLogger.Service.Processors;
+using PersonalDataLogger.Client;
 
 namespace PersonalDataLogger
 {
     public sealed class Program
     {
-        static BotSettings botSettings;
-        static ImapSettings imapSettings;
-        static NuciLoggerSettings loggerSettings;
-
         static ILogger logger;
 
         static IServiceProvider serviceProvider;
 
         static void Main(string[] args)
         {
-            LoadConfiguration();
-
             serviceProvider = CreateIOC();
             logger = serviceProvider.GetService<ILogger>();
             IEmailWorker service = serviceProvider.GetService<IEmailWorker>();
@@ -51,33 +46,29 @@ namespace PersonalDataLogger
             }
         }
 
-        static IConfiguration LoadConfiguration()
+        static IServiceProvider CreateIOC()
         {
-            botSettings = new BotSettings();
-            imapSettings = new ImapSettings();
-            loggerSettings = new NuciLoggerSettings();
+            PersonalLogManagerSettings personalLogManagerSettings = new();
+            ImapSettings imapSettings = new();
+            NuciLoggerSettings loggerSettings = new();
 
             IConfiguration config = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", true, true)
                 .Build();
 
-            config.Bind(nameof(BotSettings), botSettings);
+            config.Bind(nameof(PersonalLogManagerSettings), personalLogManagerSettings);
             config.Bind(nameof(ImapSettings), imapSettings);
             config.Bind(nameof(NuciLoggerSettings), loggerSettings);
 
-            return config;
-        }
-
-        static IServiceProvider CreateIOC()
-        {
             return new ServiceCollection()
-                .AddSingleton(botSettings)
+                .AddSingleton(personalLogManagerSettings)
                 .AddSingleton(imapSettings)
                 .AddSingleton(loggerSettings)
-                .AddSingleton<ILogger, NuciLogger>()
                 .AddSingleton<IOpsGenieEmailProcessor, OpsGenieEmailProcessor>()
                 .AddSingleton<IEmailProcessor, EmailProcessor>()
                 .AddSingleton<IEmailWorker, EmailWorker>()
+                .AddSingleton<IPersonalLogManagerService, PersonalLogManagerService>()
+                .AddSingleton<ILogger, NuciLogger>()
                 .BuildServiceProvider();
         }
 

@@ -143,7 +143,7 @@ namespace PersonalDataLogger.Service.Processors
                     return new AvailableEmail
                     {
                         Uid = uid.Id,
-                        Date = message.Date,
+                        Timestamp = message.Date,
                         Sender = message.From.ToString(),
                         Subject = message.Subject ?? string.Empty,
                         Body = message.TextBody ?? string.Empty

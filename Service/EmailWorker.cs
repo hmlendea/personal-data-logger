@@ -76,14 +76,14 @@ namespace PersonalDataLogger.Service
 
             foreach (AvailableEmail email in batch.Emails)
             {
-                if (email.Date.UtcDateTime >= minAllowedDate)
+                if (email.Timestamp.UtcDateTime >= minAllowedDate)
                 {
                     logger.Info(
                         MyOperation.WatchEmails,
                         OperationStatus.InProgress,
                         new LogInfo(MyLogInfoKey.Uid, email.Uid),
                         new LogInfo(MyLogInfoKey.Subject, email.Subject),
-                        new LogInfo(MyLogInfoKey.Date, email.Date));
+                        new LogInfo(MyLogInfoKey.Date, email.Timestamp));
 
                     if (email.Sender.Contains("opsgenie"))
                     {

@@ -6,7 +6,7 @@ namespace PersonalDataLogger.Service.Models
     {
         public uint Uid { get; init; }
 
-        public DateTimeOffset Date { get; init; }
+        public DateTimeOffset Timestamp { get; init; }
 
         public string Sender { get; init; } = string.Empty;
 

@@ -39,7 +39,7 @@ namespace PersonalDataLogger.Client
             return SendPersonalLogToManager(
                 romaniaDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 romaniaDateTime.ToString("HH:mm", CultureInfo.InvariantCulture),
-                romaniaDateTime.ToString("zzz", CultureInfo.InvariantCulture),
+                "RO",
                 template,
                 data);
         }

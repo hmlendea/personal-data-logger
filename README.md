@@ -5,6 +5,117 @@
 
 # Personal Data Logger
 
+Personal Data Logger is a .NET 10 background-style console service that polls an IMAP inbox, detects Opsgenie on-call lifecycle emails, and forwards matching events to a Personal Log Manager API.
+
+## What It Does
+
+- Connects to an IMAP server and reads inbox emails.
+- Polls continuously (every 5 seconds).
+- Keeps a persistent checkpoint based on IMAP UID so emails are not processed twice.
+- Applies a maximum email age filter (`ImapSettings.MaxEmailAge`).
+- Processes Opsgenie subjects:
+	- `Your on-call rotation ... is starting now` -> sends `WorkOnCallShiftBeginning`
+	- `Your on-call rotation ... is ending now` -> sends `WorkOnCallShiftEnding`
+- Converts timestamps to Romanian time before sending to the API.
+
+## Requirements
+
+- .NET SDK/runtime targeting `net10.0`
+- Access to an IMAP mailbox that receives the Netflix confirmation emails
+- Access to the Personal Log Manager API
+- Network access to both the IMAP server and the Personal Log Manager API
+
+## Project Structure
+
+- `Program.cs`: bootstrapping, configuration binding, DI registration, service start.
+- `Service/EmailWorker.cs`: polling loop, checkpoint load/save, filtering, dispatch.
+- `Service/Processors/EmailProcessor.cs`: IMAP connectivity and email retrieval.
+- `Service/Processors/OpsGenieEmailProcessor.cs`: subject-based Opsgenie event handling.
+- `Client/PersonalLogManagerService.cs`: outbound API call and timezone conversion.
+
+## Configuration
+
+Configure `appsettings.json` before running.
+
+Example:
+
+```json
+{
+	"personalLogManagerSettings": {
+		"baseUrl": "https://example.local",
+		"apiKey": "<api-key>",
+		"hmacSharedSecretKey": "<hmac-secret>",
+		"clientId": "<client-id>"
+	},
+	"imapSettings": {
+		"server": "imap.example.local",
+		"port": 993,
+		"username": "user@example.local",
+		"password": "<password>",
+		"maxEmailAge": 1800
+	},
+	"personalSettings": {
+		"employerName": "My Employer"
+	},
+	"nuciLoggerSettings": {
+		"minimumLevel": "Debug",
+		"logFilePath": "logfile.log",
+		"isFileOutputEnabled": true
+	}
+}
+```
+
+Notes:
+
+- `hmacSharedSecretKey` must match the settings class property name.
+- `imapSettings.port` should be a number, not a string.
+- `maxEmailAge` is in seconds.
+
+## Usage
+
+```bash
+dotnet run
+```
+
+## Checkpointing and Idempotency
+
+The service stores progress in `imap-checkpoint.json` (created in the app base directory).
+
+- `UidValidity`: mailbox identity guard.
+- `LastProcessedUid`: the last email UID that was checked.
+
+Behavior:
+
+- On normal operation, only emails with UID greater than `LastProcessedUid` are fetched.
+- If mailbox `UidValidity` changes, checkpoint is reset safely.
+- Checkpoint is updated after each checked email.
+
+To force reprocessing from the beginning, stop the service and delete `imap-checkpoint.json`.
+
+## Timezone Handling
+
+Outgoing logs are sent in Romanian time (`Europe/Bucharest`).
+
+- Linux/macOS timezone id: `Europe/Bucharest`
+- Windows fallback timezone id: `GTB Standard Time`
+
+## Logging
+
+The project uses NuciLog.
+
+Typical operation logs include:
+
+- startup/shutdown
+- IMAP login/logout
+- email processing progress (UID/subject/date)
+- outbound API request status
+
+## Security Notes
+
+- Do not commit secrets in `appsettings.json`.
+- Prefer environment-specific config management for API keys and mailbox credentials.
+- Review any release automation scripts before executing them.
+
 ## Development
 
 ### Build
@@ -19,7 +130,7 @@ dotnet build
 dotnet run
 ```
 
-### Publish
+### Release
 
 The repository includes `release.sh`, which delegates to the upstream deployment script used by the project maintainer.
 

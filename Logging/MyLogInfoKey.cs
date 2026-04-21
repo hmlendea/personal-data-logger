@@ -19,5 +19,11 @@ namespace PersonalDataLogger.Logging
         public static LogInfoKey Password => new MyLogInfoKey(nameof(Password));
 
         public static LogInfoKey MaxAge => new MyLogInfoKey(nameof(MaxAge));
+
+        public static LogInfoKey Uid => new MyLogInfoKey(nameof(Uid));
+
+        public static LogInfoKey Subject => new MyLogInfoKey(nameof(Subject));
+
+        public static LogInfoKey Date => new MyLogInfoKey(nameof(Date));
     }
 }

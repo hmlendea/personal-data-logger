@@ -4,10 +4,12 @@ using System.Linq;
 
 using MailKit;
 using MailKit.Net.Imap;
+using MailKit.Search;
 using MimeKit;
 using NuciLog.Core;
 using PersonalDataLogger.Configuration;
 using PersonalDataLogger.Logging;
+using PersonalDataLogger.Service.Models;
 
 namespace PersonalDataLogger.Service.Processors
 {
@@ -18,8 +20,6 @@ namespace PersonalDataLogger.Service.Processors
         readonly ImapSettings imapSettings = imapSettings;
         readonly ILogger logger = logger;
         readonly ImapClient imapClient = new();
-
-        DateTime lastConfirmationEmailDateTime = DateTime.Now;
 
         public void LogIn()
         {
@@ -120,6 +120,42 @@ namespace PersonalDataLogger.Service.Processors
                 OperationStatus.Success,
                 "Logged out of the IMAP server.",
                 logInfos);
+        }
+
+        public AvailableEmailBatch GetAvailableEmails(uint lastProcessedUid)
+        {
+            IMailFolder inbox = imapClient.Inbox;
+
+            if (!inbox.IsOpen)
+            {
+                inbox.Open(FolderAccess.ReadOnly);
+            }
+
+            IList<UniqueId> allUids = inbox.Search(SearchQuery.All);
+
+            IReadOnlyList<AvailableEmail> emails = allUids
+                .Where(x => x.Id > lastProcessedUid)
+                .OrderBy(x => x.Id)
+                .Select(uid =>
+                {
+                    MimeMessage message = inbox.GetMessage(uid);
+
+                    return new AvailableEmail
+                    {
+                        Uid = uid.Id,
+                        Date = message.Date,
+                        Sender = message.From.ToString(),
+                        Subject = message.Subject ?? string.Empty,
+                        Body = message.TextBody ?? string.Empty
+                    };
+                })
+                .ToArray();
+
+            return new AvailableEmailBatch
+            {
+                UidValidity = inbox.UidValidity,
+                Emails = emails
+            };
         }
     }
 }

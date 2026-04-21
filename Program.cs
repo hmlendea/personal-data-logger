@@ -9,6 +9,7 @@ using PersonalDataLogger.Service;
 using NuciLog;
 using NuciLog.Configuration;
 using NuciLog.Core;
+using PersonalDataLogger.Service.Processors;
 
 namespace PersonalDataLogger
 {
@@ -28,7 +29,7 @@ namespace PersonalDataLogger
 
             serviceProvider = CreateIOC();
             logger = serviceProvider.GetService<ILogger>();
-            IEmailWatcher service = serviceProvider.GetService<IEmailWatcher>();
+            IEmailWorker service = serviceProvider.GetService<IEmailWorker>();
 
             logger.Info(Operation.StartUp, "The service has started.");
 
@@ -74,7 +75,9 @@ namespace PersonalDataLogger
                 .AddSingleton(imapSettings)
                 .AddSingleton(loggerSettings)
                 .AddSingleton<ILogger, NuciLogger>()
-                .AddSingleton<IHouseholdConfirmator, HouseholdConfirmator>()
+                .AddSingleton<IOpsGenieEmailProcessor, OpsGenieEmailProcessor>()
+                .AddSingleton<IEmailProcessor, EmailProcessor>()
+                .AddSingleton<IEmailWorker, EmailWorker>()
                 .BuildServiceProvider();
         }
 

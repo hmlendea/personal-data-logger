@@ -1,6 +1,6 @@
 namespace PersonalDataLogger.Service
 {
-    public interface IEmailWatcher
+    public interface IEmailWorker
     {
         void WatchEmails();
     }

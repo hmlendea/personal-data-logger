@@ -63,7 +63,8 @@ namespace PersonalDataLogger.Client
                 new(MyLogInfoKey.Date, date),
                 new(MyLogInfoKey.Time, time),
                 new(MyLogInfoKey.TimeZone, timeZone),
-                new(MyLogInfoKey.Template, template)
+                new(MyLogInfoKey.Template, template),
+                new(MyLogInfoKey.Data, data)
             ];
 
             logger.Info(

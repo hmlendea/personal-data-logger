@@ -14,6 +14,7 @@ namespace PersonalDataLogger.Service
         IAliExpressProcessor aliExpressProcessor,
         IGandiProcessor gandiProcessor,
         IOpsGenieEmailProcessor opsGenieEmailProcessor,
+        IProfiProcessor profiProcessor,
         IEmailProcessor emailProcessor,
         ImapSettings imapSettings,
         ILogger logger)
@@ -99,6 +100,10 @@ namespace PersonalDataLogger.Service
                     else if (email.Sender.Contains("opsgenie"))
                     {
                         opsGenieEmailProcessor.ProcessEmail(email);
+                    }
+                    else if (email.Sender.Contains("profi_bot_server"))
+                    {
+                        profiProcessor.ProcessEmail(email);
                     }
                 }
 

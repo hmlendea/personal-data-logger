@@ -15,17 +15,15 @@ namespace PersonalDataLogger.Service.Processors
         {
             if (email.Subject.Contains("connection on a new device"))
             {
-                // Username (inside <b>...</b>)
                 Match usernameMatch = Regex.Match(
                     email.Body,
-                    @"username\s*<b>(?<username>[^<]+)</b>",
+                    @"username (?<username>[^.]+).",
                     RegexOptions.IgnoreCase);
 
                 string username = usernameMatch.Success
                     ? usernameMatch.Groups["username"].Value
                     : string.Empty;
 
-                // IP Address
                 Match ipMatch = Regex.Match(
                     email.Body,
                     @"IP address:\s*(?<ip>\d{1,3}(\.\d{1,3}){3})",

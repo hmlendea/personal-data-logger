@@ -14,6 +14,7 @@ namespace PersonalDataLogger.Service
         IAliExpressProcessor aliExpressProcessor,
         IGandiProcessor gandiProcessor,
         IOpsGenieEmailProcessor opsGenieEmailProcessor,
+        IPayPalProcessor payPalProcessor,
         IProfiProcessor profiProcessor,
         IEmailProcessor emailProcessor,
         ImapSettings imapSettings,

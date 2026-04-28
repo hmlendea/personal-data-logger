@@ -51,6 +51,7 @@ namespace PersonalDataLogger
             PersonalLogManagerSettings personalLogManagerSettings = new();
             ImapSettings imapSettings = new();
             PersonalSettings personalSettings = new();
+            AliExpressSettings aliExpressSettings = new();
             NuciLoggerSettings loggerSettings = new();
 
             IConfiguration config = new ConfigurationBuilder()
@@ -60,13 +61,16 @@ namespace PersonalDataLogger
             config.Bind(nameof(PersonalLogManagerSettings), personalLogManagerSettings);
             config.Bind(nameof(ImapSettings), imapSettings);
             config.Bind(nameof(PersonalSettings), personalSettings);
+            config.Bind(nameof(AliExpressSettings), aliExpressSettings);
             config.Bind(nameof(NuciLoggerSettings), loggerSettings);
 
             return new ServiceCollection()
                 .AddSingleton(personalLogManagerSettings)
                 .AddSingleton(imapSettings)
                 .AddSingleton(personalSettings)
+                .AddSingleton(aliExpressSettings)
                 .AddSingleton(loggerSettings)
+                .AddSingleton<IAliExpressProcessor, AliExpressProcessor>()
                 .AddSingleton<IOpsGenieEmailProcessor, OpsGenieEmailProcessor>()
                 .AddSingleton<IEmailProcessor, EmailProcessor>()
                 .AddSingleton<IEmailWorker, EmailWorker>()

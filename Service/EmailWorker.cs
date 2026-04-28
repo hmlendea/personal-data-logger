@@ -11,6 +11,7 @@ using PersonalDataLogger.Service.Processors;
 namespace PersonalDataLogger.Service
 {
     public class EmailWorker(
+        IAliExpressProcessor aliExpressProcessor,
         IOpsGenieEmailProcessor opsGenieEmailProcessor,
         IEmailProcessor emailProcessor,
         ImapSettings imapSettings,
@@ -85,7 +86,11 @@ namespace PersonalDataLogger.Service
                         new LogInfo(MyLogInfoKey.Subject, email.Subject),
                         new LogInfo(MyLogInfoKey.Date, email.Timestamp));
 
-                    if (email.Sender.Contains("opsgenie"))
+                    if (email.Sender.Contains("aliexpress"))
+                    {
+                        aliExpressProcessor.ProcessEmail(email);
+                    }
+                    else if (email.Sender.Contains("opsgenie"))
                     {
                         opsGenieEmailProcessor.ProcessEmail(email);
                     }

@@ -12,6 +12,7 @@ namespace PersonalDataLogger.Service
 {
     public class EmailWorker(
         IAliExpressProcessor aliExpressProcessor,
+        IGandiProcessor gandiProcessor,
         IOpsGenieEmailProcessor opsGenieEmailProcessor,
         IEmailProcessor emailProcessor,
         ImapSettings imapSettings,
@@ -89,6 +90,11 @@ namespace PersonalDataLogger.Service
                     if (email.Sender.Contains("aliexpress"))
                     {
                         aliExpressProcessor.ProcessEmail(email);
+                    }
+                    else if (email.Sender.Contains("gandi.net") ||
+                             email.Sender.Contains("gandi_net"))
+                    {
+                        gandiProcessor.ProcessEmail(email);
                     }
                     else if (email.Sender.Contains("opsgenie"))
                     {

@@ -71,6 +71,7 @@ namespace PersonalDataLogger
                 .AddSingleton(aliExpressSettings)
                 .AddSingleton(loggerSettings)
                 .AddSingleton<IAliExpressProcessor, AliExpressProcessor>()
+                .AddSingleton<IGandiProcessor, GandiProcessor>()
                 .AddSingleton<IOpsGenieEmailProcessor, OpsGenieEmailProcessor>()
                 .AddSingleton<IEmailProcessor, EmailProcessor>()
                 .AddSingleton<IEmailWorker, EmailWorker>()

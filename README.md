@@ -5,7 +5,7 @@
 
 # Personal Data Logger
 
-Personal Data Logger is a .NET 10 background-style console service that polls an IMAP inbox, detects Opsgenie on-call lifecycle emails, and forwards matching events to a Personal Log Manager API.
+Personal Data Logger is a .NET 10 background-style console service that polls an IMAP inbox, processes supported email events, executes timed logs, and forwards the resulting events to a Personal Log Manager API.
 
 ## What It Does
 
@@ -13,6 +13,7 @@ Personal Data Logger is a .NET 10 background-style console service that polls an
 - Polls continuously (every 5 seconds).
 - Keeps a persistent checkpoint based on IMAP UID so emails are not processed twice.
 - Applies a maximum email age filter (`ImapSettings.MaxEmailAge`).
+- Retrieves Profi Bot Server account balances daily at 06:30 local time and logs the total balance of enabled accounts.
 - Processes Opsgenie subjects:
 	- `Your on-call rotation ... is starting now` -> sends `WorkOnCallShiftBeginning`
 	- `Your on-call rotation ... is ending now` -> sends `WorkOnCallShiftEnding`
@@ -29,9 +30,12 @@ Personal Data Logger is a .NET 10 background-style console service that polls an
 
 - `Program.cs`: bootstrapping, configuration binding, DI registration, service start.
 - `Service/EmailWorker.cs`: polling loop, checkpoint load/save, filtering, dispatch.
+- `Service/TimedLogWorker.cs`: concurrent execution of registered timed logs.
+- `Service/ProfiBalanceTimedLog.cs`: daily Profi balance retrieval and log creation.
 - `Service/Processors/EmailProcessor.cs`: IMAP connectivity and email retrieval.
 - `Service/Processors/OpsGenieEmailProcessor.cs`: subject-based Opsgenie event handling.
 - `Client/PersonalLogManagerService.cs`: outbound API call and timezone conversion.
+- `Client/ProfiAccountsService.cs`: authenticated Profi Bot Server account retrieval.
 
 ## Configuration
 
@@ -57,6 +61,15 @@ Example:
 	"personalSettings": {
 		"employerName": "My Employer"
 	},
+	"profiBotServerSettings": {
+		"accountName": "Hori",
+		"accountsEndpoint": "/Users/{username}/accounts",
+		"baseUrl": "https://profi.example.local",
+		"clientId": "Bruno",
+		"hmacSharedSecretKey": "<hmac-secret>",
+		"userApiKey": "<user-api-key>",
+		"username": "hori"
+	},
 	"nuciLoggerSettings": {
 		"minimumLevel": "Debug",
 		"logFilePath": "logfile.log",
@@ -70,6 +83,15 @@ Notes:
 - `hmacSharedSecretKey` must match the settings class property name.
 - `imapSettings.port` should be a number, not a string.
 - `maxEmailAge` is in seconds.
+- `profiBotServerSettings.accountName` is the account label stored in the balance log.
+- `profiBotServerSettings.accountsEndpoint` uses `{username}` as the escaped username token.
+- The Profi User API Key and HMAC shared secret must be supplied through secure environment-specific configuration.
+
+## Timed Logs
+
+The Profi balance log executes each day at 06:30 in the host's local timezone. It retrieves `/Users/{username}/accounts`, sums `balance` for records where `isEnabled` is `true`, and sends `BotsTotalBalanceMeasurement` with the platform, account, amount, and currency data.
+
+Additional timed logs can implement `ITimedLog` and be registered with dependency injection.
 
 ## Usage
 

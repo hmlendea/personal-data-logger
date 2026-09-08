@@ -75,6 +75,7 @@ namespace PersonalDataLogger.Client
             NuciApiRequestAuthorisationInfo authorisationInfo = new()
             {
                 BearerToken = settings.ApiKey,
+                ClientId = settings.ClientId,
                 HmacSharedSecretKey = settings.HmacSharedSecretKey
             };
 

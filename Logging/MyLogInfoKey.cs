@@ -10,6 +10,7 @@ namespace PersonalDataLogger.Logging
 
         }
 
+        public static LogInfoKey Amount => new MyLogInfoKey(nameof(Amount));
         public static LogInfoKey Data => new MyLogInfoKey(nameof(Data));
         public static LogInfoKey Date => new MyLogInfoKey(nameof(Date));
         public static LogInfoKey MaxAge => new MyLogInfoKey(nameof(MaxAge));

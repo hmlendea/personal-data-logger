@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+using NuciAPI.Client;
 using NuciLog;
 using NuciLog.Configuration;
 using NuciLog.Core;
@@ -84,8 +85,11 @@ namespace PersonalDataLogger
                 .AddSingleton<IEmailWorker, EmailWorker>()
                 .AddSingleton<ITimedLog, ProfiBalanceTimedLog>()
                 .AddSingleton<ITimedLogWorker, TimedLogWorker>()
+                .AddSingleton<INuciApiClient>(new NuciApiClient(personalLogManagerSettings.BaseUrl))
                 .AddSingleton<IPersonalLogManagerService, PersonalLogManagerService>()
-                .AddSingleton<IProfiAccountsService, ProfiAccountsService>()
+                .AddSingleton<IProfiAccountsService>(provider => new ProfiAccountsService(
+                    profiBotServerSettings,
+                    new NuciApiClient(profiBotServerSettings.BaseUrl)))
                 .AddSingleton<ILogger, NuciLogger>()
                 .BuildServiceProvider();
         }

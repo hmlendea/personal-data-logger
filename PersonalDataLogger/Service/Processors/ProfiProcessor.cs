@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using PersonalDataLogger.Client;
@@ -13,11 +14,11 @@ namespace PersonalDataLogger.Service.Processors
 
         public void ProcessEmail(AvailableEmail email)
         {
-            if (email.Subject.Contains("Profi Prize Won"))
+            if (email.Subject.Contains("Profi Prize Won", StringComparison.OrdinalIgnoreCase))
             {
                 Match accountIdMatch = Regex.Match(
                     email.Body,
-                    @"Account:\s*.+\((?<account_id>\d+)\)",
+                    @"Account:\s*.*?\((?<account_id>\d+)\)",
                     RegexOptions.IgnoreCase);
 
                 string accountId = accountIdMatch.Success

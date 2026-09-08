@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using PersonalDataLogger.Client;
@@ -13,7 +14,9 @@ namespace PersonalDataLogger.Service.Processors
 
         public void ProcessEmail(AvailableEmail email)
         {
-            if (email.Subject.Contains("connection on a new device"))
+            if (email.Subject.Contains(
+                "connection on a new device",
+                StringComparison.OrdinalIgnoreCase))
             {
                 Match usernameMatch = Regex.Match(
                     email.Body,
@@ -21,7 +24,7 @@ namespace PersonalDataLogger.Service.Processors
                     RegexOptions.IgnoreCase);
 
                 string username = usernameMatch.Success
-                    ? usernameMatch.Groups["username"].Value
+                    ? usernameMatch.Groups["username"].Value.Trim()
                     : string.Empty;
 
                 Match ipMatch = Regex.Match(

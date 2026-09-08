@@ -15,6 +15,7 @@ Personal Data Logger is a .NET 10 background service that polls an IMAP inbox, p
 - [Installation](#-installation)
 - [Configuration](#-configuration)
 - [Project Structure](#-project-structure)
+- [Architecture](#-architecture)
 - [Development](#-development)
 - [Deployment](#-deployment)
 - [Contributing](#-contributing)
@@ -35,7 +36,7 @@ Personal Data Logger is a .NET 10 background service that polls an IMAP inbox, p
 ## 🚀 Usage
 
 ```bash
-dotnet run
+dotnet run --project PersonalDataLogger/PersonalDataLogger.csproj
 ```
 
 ## 🖥️ System Requirements
@@ -54,8 +55,8 @@ dotnet run
 ```bash
 git clone https://github.com/hmlendea/personal-data-logger.git
 cd personal-data-logger
-dotnet build
-dotnet run
+dotnet build personal-data-logger.slnx
+dotnet run --project PersonalDataLogger/PersonalDataLogger.csproj
 ```
 
 ## ⚙️ Configuration
@@ -116,14 +117,27 @@ Configuration example:
 
 ## 🗂️ Project Structure
 
+The repository contains a .NET solution with separate application and unit-test projects.
+
+### Projects and Packages
+
+| Project | Type | Purpose |
+|---------|------|---------|
+| `PersonalDataLogger/PersonalDataLogger.csproj` | Executable | Background service for collecting and forwarding personal events |
+| `PersonalDataLogger.UnitTests/PersonalDataLogger.UnitTests.csproj` | NUnit test project | Unit tests for the application services and processors |
+
 ### Directories
 
 | Directory | Purpose |
 |-----------|---------|
-| `Service/` | Email polling, timed log execution, and email processors |
-| `Client/` | API client services and Profi account management |
-| `Configuration/` | Configuration model classes |
-| `Logging/` | Logging operation and key definitions |
+| `PersonalDataLogger/Service/` | Email polling, timed log execution, and email processors |
+| `PersonalDataLogger/Client/` | API client services and Profi account management |
+| `PersonalDataLogger/Configuration/` | Configuration model classes |
+| `PersonalDataLogger/Logging/` | Logging operation and key definitions |
+
+## 🏗️ Architecture
+
+See the [architecture documentation](ARCHITECTURE.md) for the system context, principal components, runtime flows, ownership boundaries, dependencies, constraints, and extension points.
 
 ## 🛠️ Development
 
@@ -136,24 +150,25 @@ Configuration example:
 ```bash
 git clone https://github.com/hmlendea/personal-data-logger.git
 cd personal-data-logger
+dotnet restore personal-data-logger.slnx
 ```
 
 ### Build
 
 ```bash
-dotnet build
+dotnet build personal-data-logger.slnx
 ```
 
 ### Run
 
 ```bash
-dotnet run
+dotnet run --project PersonalDataLogger/PersonalDataLogger.csproj
 ```
 
 ### Test
 
 ```bash
-dotnet test
+dotnet test personal-data-logger.slnx
 ```
 
 ### Release

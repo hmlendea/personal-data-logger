@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using PersonalDataLogger.Client;
@@ -13,7 +14,9 @@ namespace PersonalDataLogger.Service.Processors
 
         public void ProcessEmail(AvailableEmail email)
         {
-            if (email.Subject.Contains("Conectare de pe un dispozitiv nou"))
+            if (email.Subject.Contains(
+                "Conectare de pe un dispozitiv nou",
+                StringComparison.OrdinalIgnoreCase))
             {
                 Match emailAddressMatch = Regex.Match(
                     email.Body,
@@ -21,7 +24,7 @@ namespace PersonalDataLogger.Service.Processors
                     RegexOptions.IgnoreCase);
 
                 string emailAddress = emailAddressMatch.Success
-                    ? emailAddressMatch.Groups["username"].Value
+                    ? emailAddressMatch.Groups["username"].Value.Trim()
                     : string.Empty;
 
                 personalLogManagerService.SendPersonalLogToManager(

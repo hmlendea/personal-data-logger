@@ -14,15 +14,31 @@ using PersonalDataLogger.Logging;
 
 namespace PersonalDataLogger.Client
 {
-    public class PersonalLogManagerService(
-        PersonalLogManagerSettings settings,
-        ILogger logger)
-        : IPersonalLogManagerService
+    public class PersonalLogManagerService : IPersonalLogManagerService
     {
         const string RomaniaTimeZoneId = "Europe/Bucharest";
         const string WindowsRomaniaTimeZoneId = "GTB Standard Time";
 
-        readonly NuciApiClient apiClient = new(settings.BaseUrl);
+        private readonly PersonalLogManagerSettings settings;
+        private readonly ILogger logger;
+        private readonly INuciApiClient apiClient;
+
+        public PersonalLogManagerService(
+            PersonalLogManagerSettings settings,
+            ILogger logger)
+            : this(settings, logger, new NuciApiClient(settings.BaseUrl))
+        {
+        }
+
+        public PersonalLogManagerService(
+            PersonalLogManagerSettings settings,
+            ILogger logger,
+            INuciApiClient apiClient)
+        {
+            this.settings = settings;
+            this.logger = logger;
+            this.apiClient = apiClient;
+        }
 
         public Task SendPersonalLogToManager(
             DateTimeOffset timestamp,

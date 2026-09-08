@@ -7,15 +7,19 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 using Moq;
 
+using NuciAPI.Client;
+using NuciAPI.Responses;
+
 using PersonalDataLogger.Client;
 using PersonalDataLogger.Configuration;
 
-namespace PersonalDataLogger.Tests.Client
+namespace PersonalDataLogger.UnitTests.Client
 {
     [TestFixture]
     public class ProfiAccountsServiceTests
     {
         private ProfiBotServerSettings settings;
+        private Mock<INuciApiClient> mockApiClient;
         private ProfiAccountsService service;
 
         [SetUp]
@@ -31,7 +35,8 @@ namespace PersonalDataLogger.Tests.Client
                 AccountsEndpoint = "/Users/{username}/accounts"
             };
 
-            service = new ProfiAccountsService(settings);
+            mockApiClient = new Mock<INuciApiClient>();
+            service = new ProfiAccountsService(settings, mockApiClient.Object);
         }
 
         [Test]
@@ -79,14 +84,19 @@ namespace PersonalDataLogger.Tests.Client
             => Assert.That(service, Is.Not.Null);
 
         [Test]
-        public void GivenNullBaseUrl_WhenCreatingServiceAndCalling_ThenExceptionIsThrown()
+        public void GivenApiClientFailure_WhenGettingEnabledAccountsBalance_ThenExceptionIsThrown()
         {
-            settings.BaseUrl = null;
-            service = new ProfiAccountsService(settings);
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetProfiAccountsRequest, GetProfiAccountsResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<GetProfiAccountsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    It.IsAny<string>()))
+                .ThrowsAsync(new HttpRequestException("The API request failed."));
 
             Assert.That(
                 async () => await service.GetEnabledAccountsBalance(),
-                Throws.InstanceOf<Exception>());
+                Throws.InstanceOf<HttpRequestException>());
         }
 
         [Test]

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using PersonalDataLogger.Client;
 using PersonalDataLogger.Configuration;
@@ -14,7 +15,9 @@ namespace PersonalDataLogger.Service.Processors
 
         public void ProcessEmail(AvailableEmail email)
         {
-            if (email.Subject.Contains("Your AliExpress verification code"))
+            if (email.Subject.Contains(
+                "Your AliExpress verification code",
+                StringComparison.OrdinalIgnoreCase))
             {
                 personalLogManagerService.SendPersonalLogToManager(
                     email.Timestamp,

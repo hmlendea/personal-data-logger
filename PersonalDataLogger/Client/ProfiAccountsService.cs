@@ -10,13 +10,25 @@ using PersonalDataLogger.Configuration;
 
 namespace PersonalDataLogger.Client
 {
-    public sealed class ProfiAccountsService(
-        ProfiBotServerSettings settings)
-        : IProfiAccountsService
+    public sealed class ProfiAccountsService : IProfiAccountsService
     {
         private static string UsernameToken => "{username}";
 
-        private readonly NuciApiClient apiClient = new(settings.BaseUrl);
+        private readonly ProfiBotServerSettings settings;
+        private readonly INuciApiClient apiClient;
+
+        public ProfiAccountsService(ProfiBotServerSettings settings)
+            : this(settings, new NuciApiClient(settings.BaseUrl))
+        {
+        }
+
+        public ProfiAccountsService(
+            ProfiBotServerSettings settings,
+            INuciApiClient apiClient)
+        {
+            this.settings = settings;
+            this.apiClient = apiClient;
+        }
 
         public async Task<decimal> GetEnabledAccountsBalance()
         {

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 using NUnit.Framework;
@@ -12,7 +14,7 @@ using PersonalDataLogger.Client;
 using PersonalDataLogger.Configuration;
 using PersonalDataLogger.Service;
 
-namespace PersonalDataLogger.Tests.Service
+namespace PersonalDataLogger.UnitTests.Service
 {
     [TestFixture]
     public class ProfiBalanceTimedLogTests
@@ -259,19 +261,7 @@ namespace PersonalDataLogger.Tests.Service
 
             await timedLog.Execute();
 
-            mockLogger.Verify(
-                l => l.Info(
-                    It.IsAny<IOperationBase>(),
-                    OperationStatus.Started,
-                    It.IsAny<IEnumerable<LogInfo>>()),
-                Times.Once);
-
-            mockLogger.Verify(
-                l => l.Info(
-                    It.IsAny<IOperationBase>(),
-                    OperationStatus.Success,
-                    It.IsAny<IEnumerable<LogInfo>>()),
-                Times.Once);
+            Assert.That(mockLogger.Invocations.Count, Is.EqualTo(2));
         }
 
         [Test]

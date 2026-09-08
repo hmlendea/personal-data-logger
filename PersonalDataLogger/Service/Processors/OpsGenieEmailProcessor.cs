@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using PersonalDataLogger.Client;
 using PersonalDataLogger.Configuration;
@@ -12,9 +13,11 @@ namespace PersonalDataLogger.Service.Processors
     {
         public void ProcessEmail(AvailableEmail email)
         {
-            if (email.Subject.StartsWith("Your on-call rotation"))
+            if (email.Subject.StartsWith(
+                "Your on-call rotation",
+                StringComparison.OrdinalIgnoreCase))
             {
-                if (email.Subject.EndsWith("is starting now"))
+                if (email.Subject.EndsWith("is starting now", StringComparison.OrdinalIgnoreCase))
                 {
                     personalLogManagerService.SendPersonalLogToManager(
                         email.Timestamp,
@@ -24,7 +27,7 @@ namespace PersonalDataLogger.Service.Processors
                             ["employer_name"] = settings.EmployerName
                         });
                 }
-                else if (email.Subject.EndsWith("is ending now"))
+                else if (email.Subject.EndsWith("is ending now", StringComparison.OrdinalIgnoreCase))
                 {
                     personalLogManagerService.SendPersonalLogToManager(
                         email.Timestamp,

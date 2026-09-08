@@ -7,18 +7,20 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 using Moq;
 
+using NuciAPI.Client;
 using NuciLog.Core;
 using NuciAPI.Responses;
 
 using PersonalDataLogger.Client;
 using PersonalDataLogger.Configuration;
 
-namespace PersonalDataLogger.Tests.Client
+namespace PersonalDataLogger.UnitTests.Client
 {
     [TestFixture]
     public class PersonalLogManagerServiceTests
     {
         private Mock<ILogger> mockLogger;
+        private Mock<INuciApiClient> mockApiClient;
         private PersonalLogManagerSettings settings;
         private PersonalLogManagerService service;
 
@@ -26,6 +28,7 @@ namespace PersonalDataLogger.Tests.Client
         public void SetUp()
         {
             mockLogger = new Mock<ILogger>();
+            mockApiClient = new Mock<INuciApiClient>();
             settings = new PersonalLogManagerSettings
             {
                 BaseUrl = "https://api.example.com",
@@ -34,7 +37,18 @@ namespace PersonalDataLogger.Tests.Client
                 HmacSharedSecretKey = "test-secret-key"
             };
 
-            service = new PersonalLogManagerService(settings, mockLogger.Object);
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<StoreLogRequest, NuciApiSuccessResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<StoreLogRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    "/PersonalLog"))
+                .ReturnsAsync(NuciApiSuccessResponse.Default);
+
+            service = new PersonalLogManagerService(
+                settings,
+                mockLogger.Object,
+                mockApiClient.Object);
         }
 
         [Test]
@@ -47,7 +61,7 @@ namespace PersonalDataLogger.Tests.Client
 
             mockLogger.Verify(
                 l => l.Info(
-                    It.IsAny<IOperationBase>(),
+                    It.IsAny<Operation>(),
                     It.IsAny<OperationStatus>(),
                     It.IsAny<IEnumerable<LogInfo>>()),
                 Times.AtLeastOnce);
@@ -68,7 +82,7 @@ namespace PersonalDataLogger.Tests.Client
 
             mockLogger.Verify(
                 l => l.Info(
-                    It.IsAny<IOperationBase>(),
+                    It.IsAny<Operation>(),
                     It.IsAny<OperationStatus>(),
                     It.IsAny<IEnumerable<LogInfo>>()),
                 Times.AtLeastOnce);
@@ -86,7 +100,7 @@ namespace PersonalDataLogger.Tests.Client
             // Should log with converted time (approximately UTC+3 for Europe/Bucharest)
             mockLogger.Verify(
                 l => l.Info(
-                    It.IsAny<IOperationBase>(),
+                    It.IsAny<Operation>(),
                     It.IsAny<OperationStatus>(),
                     It.IsAny<IEnumerable<LogInfo>>()),
                 Times.AtLeastOnce);
@@ -104,7 +118,7 @@ namespace PersonalDataLogger.Tests.Client
 
             mockLogger.Verify(
                 l => l.Info(
-                    It.IsAny<IOperationBase>(),
+                    It.IsAny<Operation>(),
                     It.IsAny<OperationStatus>(),
                     It.IsAny<IEnumerable<LogInfo>>()),
                 Times.AtLeastOnce);
@@ -127,7 +141,7 @@ namespace PersonalDataLogger.Tests.Client
 
             mockLogger.Verify(
                 l => l.Info(
-                    It.IsAny<IOperationBase>(),
+                    It.IsAny<Operation>(),
                     It.IsAny<OperationStatus>(),
                     It.IsAny<IEnumerable<LogInfo>>()),
                 Times.AtLeastOnce);
@@ -144,7 +158,7 @@ namespace PersonalDataLogger.Tests.Client
 
             mockLogger.Verify(
                 l => l.Info(
-                    It.IsAny<IOperationBase>(),
+                    It.IsAny<Operation>(),
                     It.IsAny<OperationStatus>(),
                     It.IsAny<IEnumerable<LogInfo>>()),
                 Times.AtLeastOnce);
@@ -166,20 +180,26 @@ namespace PersonalDataLogger.Tests.Client
 
             mockLogger.Verify(
                 l => l.Info(
-                    It.IsAny<IOperationBase>(),
+                    It.IsAny<Operation>(),
                     It.IsAny<OperationStatus>(),
                     It.IsAny<IEnumerable<LogInfo>>()),
                 Times.AtLeastOnce);
         }
 
         [Test]
-        public void GivenInvalidSettings_WhenCreatingServiceAndCalling_ThenExceptionIsThrown()
+        public void GivenApiClientFailure_WhenSendingPersonalLog_ThenExceptionIsThrown()
         {
-            settings.BaseUrl = null;
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<StoreLogRequest, NuciApiSuccessResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<StoreLogRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    "/PersonalLog"))
+                .ThrowsAsync(new HttpRequestException("The API request failed."));
 
             Assert.That(
                 async () => await service.SendPersonalLogToManager(DateTimeOffset.Now, "Test"),
-                Throws.InstanceOf<Exception>());
+                Throws.InstanceOf<HttpRequestException>());
         }
     }
 }

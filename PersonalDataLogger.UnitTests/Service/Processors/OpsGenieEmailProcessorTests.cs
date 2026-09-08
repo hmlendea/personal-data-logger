@@ -9,7 +9,7 @@ using PersonalDataLogger.Configuration;
 using PersonalDataLogger.Service.Models;
 using PersonalDataLogger.Service.Processors;
 
-namespace PersonalDataLogger.Tests.Service.Processors
+namespace PersonalDataLogger.UnitTests.Service.Processors
 {
     [TestFixture]
     public class OpsGenieEmailProcessorTests
@@ -74,8 +74,7 @@ namespace PersonalDataLogger.Tests.Service.Processors
             mockPersonalLogManagerService.Verify(
                 s => s.SendPersonalLogToManager(
                     email.Timestamp,
-                    "WorkOnCallShiftEnding",
-                    It.IsAny<Dictionary<string, string>>()),
+                    "WorkOnCallShiftEnding"),
                 Times.Once);
         }
 
@@ -90,8 +89,7 @@ namespace PersonalDataLogger.Tests.Service.Processors
             mockPersonalLogManagerService.Verify(
                 s => s.SendPersonalLogToManager(
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<string>(),
-                    It.IsAny<Dictionary<string, string>>()),
+                    "WorkOnCallShiftEnding"),
                 Times.Once);
         }
 
@@ -138,7 +136,7 @@ namespace PersonalDataLogger.Tests.Service.Processors
             mockPersonalLogManagerService.Verify(
                 s => s.SendPersonalLogToManager(
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<string>(),
+                    "WorkOnCallShiftBeginning",
                     It.IsAny<Dictionary<string, string>>()),
                 Times.Once);
         }
@@ -154,8 +152,7 @@ namespace PersonalDataLogger.Tests.Service.Processors
             mockPersonalLogManagerService.Verify(
                 s => s.SendPersonalLogToManager(
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<string>(),
-                    It.IsAny<Dictionary<string, string>>()),
+                    "WorkOnCallShiftEnding"),
                 Times.Once);
         }
 
@@ -236,9 +233,7 @@ namespace PersonalDataLogger.Tests.Service.Processors
             mockPersonalLogManagerService.Verify(
                 s => s.SendPersonalLogToManager(
                     It.IsAny<DateTimeOffset>(),
-                    "WorkOnCallShiftEnding",
-                    It.Is<Dictionary<string, string>>(d =>
-                        !d.ContainsKey("employer_name"))),
+                    "WorkOnCallShiftEnding"),
                 Times.Once);
         }
 

@@ -8,7 +8,7 @@ using PersonalDataLogger.Client;
 using PersonalDataLogger.Service.Models;
 using PersonalDataLogger.Service.Processors;
 
-namespace PersonalDataLogger.Tests.Service.Processors
+namespace PersonalDataLogger.UnitTests.Service.Processors
 {
     [TestFixture]
     public class GandiProcessorTests

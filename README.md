@@ -18,6 +18,7 @@ Personal Data Logger is a .NET 10 background service that polls an IMAP inbox, p
 - [Development](#-development)
 - [Deployment](#-deployment)
 - [Contributing](#-contributing)
+- [Project Engagement](#-project-engagement)
 - [License](#-license)
 
 ## ✨ Capabilities
@@ -192,6 +193,14 @@ When doing so, please:
 - Revise the documentation when functionality changes
 - Properly test all modifications, including edge cases and error conditions
 - Add tests for additional or modified functionality
+
+## 💝 Project Engagement
+
+Discovered a problem or have a suggestion? [Open an issue](https://github.com/hmlendea/personal-data-logger/issues)!
+
+If you find this project useful, consider [funding it](https://hmlendea.go.ro/funding) or starring ⭐️ it on GitHub!
+
+[![Donate](https://raw.githubusercontent.com/hmlendea/readme-assets/master/donate_generic.png)](https://hmlendea.go.ro/funding)
 
 ## 📄 License
 

@@ -19,6 +19,7 @@ Personal Data Logger is a .NET 10 background service that polls an IMAP inbox, p
 - [Development](#-development)
 - [Deployment](#-deployment)
 - [Contributing](#-contributing)
+- [Security](#-security)
 - [Project Engagement](#-project-engagement)
 - [License](#-license)
 
@@ -208,6 +209,10 @@ When doing so, please:
 - Revise the documentation when functionality changes
 - Properly test all modifications, including edge cases and error conditions
 - Add tests for additional or modified functionality
+
+## 🔒 Security
+
+For information on reporting security vulnerabilities, see [SECURITY.md](./SECURITY.md).
 
 ## 💝 Project Engagement
 

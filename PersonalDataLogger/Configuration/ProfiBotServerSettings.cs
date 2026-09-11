@@ -15,5 +15,19 @@ namespace PersonalDataLogger.Configuration
         public string UserApiKey { get; set; }
 
         public string Username { get; set; }
+
+        public bool IsConfigured =>
+            IsConfiguredValue(AccountName) &&
+            IsConfiguredValue(AccountsEndpoint) &&
+            IsConfiguredValue(BaseUrl) &&
+            IsConfiguredValue(ClientId) &&
+            IsConfiguredValue(HmacSharedSecretKey) &&
+            IsConfiguredValue(UserApiKey) &&
+            IsConfiguredValue(Username);
+
+        private static bool IsConfiguredValue(string value)
+            => !string.IsNullOrWhiteSpace(value) &&
+               !value.StartsWith("[[", System.StringComparison.Ordinal) &&
+               !value.EndsWith("]]", System.StringComparison.Ordinal);
     }
 }

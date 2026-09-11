@@ -27,6 +27,7 @@ namespace PersonalDataLogger.UnitTests.Client
         {
             settings = new ProfiBotServerSettings
             {
+                AccountName = "Solaire of Astora",
                 BaseUrl = "https://api.example.com",
                 UserApiKey = "test-api-key",
                 ClientId = "test-client-id",
@@ -42,15 +43,23 @@ namespace PersonalDataLogger.UnitTests.Client
         [Test]
         public async Task GivenAValidServiceConfiguration_WhenGettingEnabledAccountsBalance_ThenAPIIsCalledWithCorrectEndpoint()
         {
-            // This test validates the endpoint URL construction
-            Assert.That(settings.Username, Is.EqualTo("testuser"));
-            Assert.That(settings.AccountsEndpoint, Contains.Substring("{username}"));
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetProfiAccountsRequest, GetProfiAccountsResponse>(
+                    HttpMethod.Get,
+                    It.IsAny<GetProfiAccountsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    "/Users/testuser/accounts"))
+                .ReturnsAsync(new GetProfiAccountsResponse());
 
-            // Verify that endpoint contains the username placeholder
-            string expectedEndpoint = settings.AccountsEndpoint
-                .Replace("{username}", Uri.EscapeDataString(settings.Username), StringComparison.Ordinal);
+            await service.GetEnabledAccountsBalance();
 
-            Assert.That(expectedEndpoint, Contains.Substring("testuser"));
+            mockApiClient.Verify(
+                client => client.SendRequestAsync<GetProfiAccountsRequest, GetProfiAccountsResponse>(
+                    HttpMethod.Get,
+                    It.IsAny<GetProfiAccountsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    "/Users/testuser/accounts"),
+                Times.Once);
         }
 
         [Test]
@@ -82,6 +91,50 @@ namespace PersonalDataLogger.UnitTests.Client
         [Test]
         public void GivenSettingsWithAllRequiredFields_WhenConstructingService_ThenServiceIsCreatedSuccessfully()
             => Assert.That(service, Is.Not.Null);
+
+        [Test]
+        public void GivenACompleteProfiBotServerConfiguration_WhenCheckingConfiguration_ThenItIsConfigured()
+            => Assert.That(settings.IsConfigured);
+
+        [Test]
+        public void GivenAnUnresolvedProfiBotServerConfigurationValue_WhenCheckingConfiguration_ThenItIsNotConfigured()
+        {
+            settings.UserApiKey = "[[PROFI_BOT_SERVER_USER_API_KEY]]";
+
+            Assert.That(settings.IsConfigured, Is.False);
+        }
+
+        [Test]
+        public void GivenAMissingProfiBotServerConfigurationValue_WhenCheckingConfiguration_ThenItIsNotConfigured()
+        {
+            settings.AccountsEndpoint = string.Empty;
+
+            Assert.That(settings.IsConfigured, Is.False);
+        }
+
+        [Test]
+        public async Task GivenAccountsResponseFromApiClient_WhenGettingEnabledAccountsBalance_ThenOnlyEnabledAccountBalancesAreSummed()
+        {
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetProfiAccountsRequest, GetProfiAccountsResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<GetProfiAccountsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    It.IsAny<string>()))
+                .ReturnsAsync(new GetProfiAccountsResponse
+                {
+                    Accounts =
+                    [
+                        new() { Balance = 10.25m, IsEnabled = true },
+                        new() { Balance = 200.50m, IsEnabled = false },
+                        new() { Balance = 3.75m, IsEnabled = true }
+                    ]
+                });
+
+            decimal balance = await service.GetEnabledAccountsBalance();
+
+            Assert.That(balance, Is.EqualTo(14.00m));
+        }
 
         [Test]
         public void GivenApiClientFailure_WhenGettingEnabledAccountsBalance_ThenExceptionIsThrown()

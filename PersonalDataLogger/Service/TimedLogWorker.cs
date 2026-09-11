@@ -26,30 +26,28 @@ namespace PersonalDataLogger.Service
 
         private void WatchTimedLog(ITimedLog timedLog)
         {
-            try
+            while (true)
             {
-                while (true)
+                DateTimeOffset currentTime = DateTimeOffset.Now;
+                DateTimeOffset nextExecution = timedLog.GetNextExecution(currentTime);
+                TimeSpan delay = nextExecution - currentTime;
+
+                if (delay > TimeSpan.Zero)
                 {
-                    DateTimeOffset currentTime = DateTimeOffset.Now;
-                    DateTimeOffset nextExecution = timedLog.GetNextExecution(currentTime);
-                    TimeSpan delay = nextExecution - currentTime;
+                    Thread.Sleep(delay);
+                }
 
-                    if (delay > TimeSpan.Zero)
-                    {
-                        Thread.Sleep(delay);
-                    }
-
+                try
+                {
                     timedLog.Execute().GetAwaiter().GetResult();
                 }
-            }
-            catch (Exception exception)
-            {
-                logger.Error(
-                    MyOperation.ExecuteTimedLog,
-                    OperationStatus.Failure,
-                    exception);
-
-                throw;
+                catch (Exception exception)
+                {
+                    logger.Error(
+                        MyOperation.ExecuteTimedLog,
+                        OperationStatus.Failure,
+                        exception);
+                }
             }
         }
     }

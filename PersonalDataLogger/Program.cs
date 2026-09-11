@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Configuration;
@@ -22,20 +23,29 @@ namespace PersonalDataLogger
 
         private static IServiceProvider serviceProvider;
 
+        private static ProfiBotServerSettings profiBotServerSettings;
+
         private static void Main(string[] args)
         {
             serviceProvider = CreateIOC();
             logger = serviceProvider.GetService<ILogger>();
             IEmailWorker emailWorker = serviceProvider.GetService<IEmailWorker>();
-            ITimedLogWorker timedLogWorker = serviceProvider.GetService<ITimedLogWorker>();
 
             logger.Info(Operation.StartUp, "The service has started.");
 
             try
             {
                 Task emailWorkerTask = Task.Run(emailWorker.WatchEmails);
-                Task timedLogWorkerTask = Task.Run(timedLogWorker.WatchTimedLogs);
-                Task completedTask = Task.WhenAny(emailWorkerTask, timedLogWorkerTask).GetAwaiter().GetResult();
+                List<Task> workerTasks = [emailWorkerTask];
+
+                if (profiBotServerSettings.IsConfigured)
+                {
+                    ITimedLogWorker timedLogWorker = serviceProvider.GetService<ITimedLogWorker>();
+                    Task timedLogWorkerTask = Task.Run(timedLogWorker.WatchTimedLogs);
+                    workerTasks.Add(timedLogWorkerTask);
+                }
+
+                Task completedTask = Task.WhenAny(workerTasks).GetAwaiter().GetResult();
 
                 completedTask.GetAwaiter().GetResult();
             }
@@ -55,7 +65,7 @@ namespace PersonalDataLogger
             ImapSettings imapSettings = new();
             PersonalSettings personalSettings = new();
             AliExpressSettings aliExpressSettings = new();
-            ProfiBotServerSettings profiBotServerSettings = new();
+            profiBotServerSettings = new();
             NuciLoggerSettings loggerSettings = new();
 
             IConfiguration config = new ConfigurationBuilder()
@@ -69,7 +79,7 @@ namespace PersonalDataLogger
             config.Bind(nameof(ProfiBotServerSettings), profiBotServerSettings);
             config.Bind(nameof(NuciLoggerSettings), loggerSettings);
 
-            return new ServiceCollection()
+            IServiceCollection services = new ServiceCollection()
                 .AddSingleton(personalLogManagerSettings)
                 .AddSingleton(imapSettings)
                 .AddSingleton(personalSettings)
@@ -83,15 +93,21 @@ namespace PersonalDataLogger
                 .AddSingleton<IProfiProcessor, ProfiProcessor>()
                 .AddSingleton<IEmailProcessor, EmailProcessor>()
                 .AddSingleton<IEmailWorker, EmailWorker>()
-                .AddSingleton<ITimedLog, ProfiBalanceTimedLog>()
-                .AddSingleton<ITimedLogWorker, TimedLogWorker>()
                 .AddSingleton<INuciApiClient>(new NuciApiClient(personalLogManagerSettings.BaseUrl))
                 .AddSingleton<IPersonalLogManagerService, PersonalLogManagerService>()
-                .AddSingleton<IProfiAccountsService>(provider => new ProfiAccountsService(
-                    profiBotServerSettings,
-                    new NuciApiClient(profiBotServerSettings.BaseUrl)))
-                .AddSingleton<ILogger, NuciLogger>()
-                .BuildServiceProvider();
+                .AddSingleton<ILogger, NuciLogger>();
+
+            if (profiBotServerSettings.IsConfigured)
+            {
+                services
+                    .AddSingleton<ITimedLog, ProfiBalanceTimedLog>()
+                    .AddSingleton<ITimedLogWorker, TimedLogWorker>()
+                    .AddSingleton<IProfiAccountsService>(provider => new ProfiAccountsService(
+                        profiBotServerSettings,
+                        new NuciApiClient(profiBotServerSettings.BaseUrl)));
+            }
+
+            return services.BuildServiceProvider();
         }
     }
 }

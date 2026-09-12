@@ -6,44 +6,68 @@ using PersonalDataLogger.Service.Models;
 
 namespace PersonalDataLogger.Service.Processors
 {
-    public class ProfiProcessor(
+    public sealed class ProfiProcessor(
         IPersonalLogManagerService personalLogManagerService)
         : IProfiProcessor
     {
-        const string PlatformName = "Profi";
+        private static readonly Regex AccountIdRegex = new(
+            @"(?:Account|Cont):\s*.*?\((?<account_id>\d+)\)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        private static readonly Regex PrizeRegex = new(
+            @"(?:Item|Articol):\s*(?<prize>.+)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        private static string EnglishPrizeSubject => "Profi Prize Won";
+
+        private static string RomanianPrizeSubject => "Ai câștigat un premiu Profi!";
+
+        private static string BotPrizeLogName => "BotPrizeWinning";
+
+        private static string PlatformName => "Profi";
+
+        private static string PlatformKey => "platform";
+
+        private static string AccountIdKey => "account_id";
+
+        private static string PrizeDescriptionKey => "prize_description";
 
         public void ProcessEmail(AvailableEmail email)
         {
-            if (email.Subject.Contains("Profi Prize Won", StringComparison.OrdinalIgnoreCase))
+            if (!IsPrizeEmail(email.Subject))
             {
-                Match accountIdMatch = Regex.Match(
-                    email.Body,
-                    @"Account:\s*.*?\((?<account_id>\d+)\)",
-                    RegexOptions.IgnoreCase);
-
-                string accountId = accountIdMatch.Success
-                    ? accountIdMatch.Groups["account_id"].Value
-                    : string.Empty;
-
-                Match prizeMatch = Regex.Match(
-                    email.Body,
-                    @"Item:\s*(?<prize>.+)",
-                    RegexOptions.IgnoreCase);
-
-                string prize = prizeMatch.Success
-                    ? prizeMatch.Groups["prize"].Value.Trim()
-                    : string.Empty;
-
-                personalLogManagerService.SendPersonalLogToManager(
-                    email.Timestamp,
-                    "BotPrizeWinning",
-                    new Dictionary<string, string>()
-                    {
-                        ["platform"] = PlatformName,
-                        ["account_id"] = accountId,
-                        ["prize_description"] = prize
-                    });
+                return;
             }
+
+            Match accountIdMatch = AccountIdRegex.Match(email.Body);
+            string accountId = string.Empty;
+
+            if (accountIdMatch.Success)
+            {
+                accountId = accountIdMatch.Groups[AccountIdKey].Value;
+            }
+
+            Match prizeMatch = PrizeRegex.Match(email.Body);
+            string prize = string.Empty;
+
+            if (prizeMatch.Success)
+            {
+                prize = prizeMatch.Groups["prize"].Value.Trim();
+            }
+
+            personalLogManagerService.SendPersonalLogToManager(
+                email.Timestamp,
+                BotPrizeLogName,
+                new Dictionary<string, string>()
+                {
+                    [PlatformKey] = PlatformName,
+                    [AccountIdKey] = accountId,
+                    [PrizeDescriptionKey] = prize
+                });
         }
+
+        private static bool IsPrizeEmail(string subject)
+            => subject.Contains(EnglishPrizeSubject, StringComparison.OrdinalIgnoreCase)
+                || subject.Contains(RomanianPrizeSubject, StringComparison.OrdinalIgnoreCase);
     }
 }

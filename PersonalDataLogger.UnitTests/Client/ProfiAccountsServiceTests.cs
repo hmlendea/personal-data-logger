@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -9,6 +8,8 @@ using Moq;
 
 using NuciAPI.Client;
 using NuciAPI.Responses;
+
+using NuciLog.Core;
 
 using PersonalDataLogger.Client;
 using PersonalDataLogger.Configuration;
@@ -20,6 +21,7 @@ namespace PersonalDataLogger.UnitTests.Client
     {
         private ProfiBotServerSettings settings;
         private Mock<INuciApiClient> mockApiClient;
+        private Mock<ILogger> mockLogger;
         private ProfiAccountsService service;
 
         [SetUp]
@@ -37,7 +39,11 @@ namespace PersonalDataLogger.UnitTests.Client
             };
 
             mockApiClient = new Mock<INuciApiClient>();
-            service = new ProfiAccountsService(settings, mockApiClient.Object);
+            mockLogger = new Mock<ILogger>();
+            service = new ProfiAccountsService(
+                settings,
+                mockApiClient.Object,
+                mockLogger.Object);
         }
 
         [Test]
@@ -137,6 +143,34 @@ namespace PersonalDataLogger.UnitTests.Client
         }
 
         [Test]
+        public async Task GivenAValidAccountsResponse_WhenGettingEnabledAccountsBalance_ThenEachStageIsLogged()
+        {
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetProfiAccountsRequest, GetProfiAccountsResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<GetProfiAccountsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    It.IsAny<string>()))
+                .ReturnsAsync(new GetProfiAccountsResponse
+                {
+                    Accounts =
+                    [
+                        new() { Balance = 3.14m, IsEnabled = true },
+                        new() { Balance = 6.13m, IsEnabled = false }
+                    ]
+                });
+
+            await service.GetEnabledAccountsBalance();
+
+            mockLogger.Verify(
+                logger => logger.Info(
+                    It.IsAny<Operation>(),
+                    It.IsAny<OperationStatus>(),
+                    It.IsAny<IEnumerable<LogInfo>>()),
+                Times.Exactly(4));
+        }
+
+        [Test]
         public void GivenApiClientFailure_WhenGettingEnabledAccountsBalance_ThenExceptionIsThrown()
         {
             mockApiClient
@@ -150,6 +184,133 @@ namespace PersonalDataLogger.UnitTests.Client
             Assert.That(
                 async () => await service.GetEnabledAccountsBalance(),
                 Throws.InstanceOf<HttpRequestException>());
+
+            VerifyFailureWasLogged();
+        }
+
+        [Test]
+        public void GivenAnUnexpectedSuccessfulResponse_WhenGettingEnabledAccountsBalance_ThenFailureIsLogged()
+        {
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetProfiAccountsRequest, GetProfiAccountsResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<GetProfiAccountsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    It.IsAny<string>()))
+                .ReturnsAsync(NuciApiSuccessResponse.Default);
+
+            Assert.That(
+                async () => await service.GetEnabledAccountsBalance(),
+                Throws.InstanceOf<HttpRequestException>());
+
+            VerifyFailureWasLogged();
+        }
+
+        [Test]
+        public void GivenARejectedAccountsResponse_WhenGettingEnabledAccountsBalance_ThenFailureIsLogged()
+        {
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetProfiAccountsRequest, GetProfiAccountsResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<GetProfiAccountsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    It.IsAny<string>()))
+                .ReturnsAsync(NuciApiErrorResponse.BadRequest);
+
+            Assert.That(
+                async () => await service.GetEnabledAccountsBalance(),
+                Throws.InstanceOf<HttpRequestException>());
+
+            VerifyFailureWasLogged();
+        }
+
+        [Test]
+        public void GivenANullAccountsResponse_WhenGettingEnabledAccountsBalance_ThenFailureIsLogged()
+        {
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetProfiAccountsRequest, GetProfiAccountsResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<GetProfiAccountsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    It.IsAny<string>()))
+                .ReturnsAsync((NuciApiResponse)null);
+
+            Assert.That(
+                async () => await service.GetEnabledAccountsBalance(),
+                Throws.InstanceOf<HttpRequestException>());
+
+            VerifyFailureWasLogged();
+        }
+
+        [Test]
+        public void GivenAResponseWithoutAccounts_WhenGettingEnabledAccountsBalance_ThenFailureIsLogged()
+        {
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetProfiAccountsRequest, GetProfiAccountsResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<GetProfiAccountsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    It.IsAny<string>()))
+                .ReturnsAsync(new GetProfiAccountsResponse
+                {
+                    Accounts = null
+                });
+
+            Assert.That(
+                async () => await service.GetEnabledAccountsBalance(),
+                Throws.InstanceOf<HttpRequestException>());
+
+            VerifyFailureWasLogged();
+        }
+
+        [Test]
+        public void GivenAnOverflowingBalance_WhenGettingEnabledAccountsBalance_ThenFailureIsLogged()
+        {
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetProfiAccountsRequest, GetProfiAccountsResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<GetProfiAccountsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    It.IsAny<string>()))
+                .ReturnsAsync(new GetProfiAccountsResponse
+                {
+                    Accounts =
+                    [
+                        new() { Balance = decimal.MaxValue, IsEnabled = true },
+                        new() { Balance = 4m, IsEnabled = true }
+                    ]
+                });
+
+            Assert.That(
+                async () => await service.GetEnabledAccountsBalance(),
+                Throws.InstanceOf<OverflowException>());
+
+            VerifyFailureWasLogged();
+        }
+
+        [Test]
+        public async Task GivenAServiceWithoutALogger_WhenGettingEnabledAccountsBalance_ThenTheBalanceIsReturned()
+        {
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetProfiAccountsRequest, GetProfiAccountsResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<GetProfiAccountsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    It.IsAny<string>()))
+                .ReturnsAsync(new GetProfiAccountsResponse
+                {
+                    Accounts =
+                    [
+                        new() { Balance = 3.14m, IsEnabled = true }
+                    ]
+                });
+            ProfiAccountsService serviceWithoutLogger = new(
+                settings,
+                mockApiClient.Object);
+
+            decimal balance = await serviceWithoutLogger.GetEnabledAccountsBalance();
+
+            Assert.That(balance, Is.EqualTo(3.14m));
         }
 
         [Test]
@@ -164,5 +325,15 @@ namespace PersonalDataLogger.UnitTests.Client
 
             Assert.That(endpoint, Contains.Substring("/Users//accounts"));
         }
+
+        private void VerifyFailureWasLogged()
+            => mockLogger.Verify(
+                logger => logger.Error(
+                    It.IsAny<Operation>(),
+                    It.IsAny<OperationStatus>(),
+                    It.IsAny<string>(),
+                    It.IsAny<Exception>(),
+                    It.IsAny<IEnumerable<LogInfo>>()),
+                Times.Once);
     }
 }

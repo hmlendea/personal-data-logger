@@ -104,7 +104,8 @@ namespace PersonalDataLogger
                     .AddSingleton<ITimedLogWorker, TimedLogWorker>()
                     .AddSingleton<IProfiAccountsService>(provider => new ProfiAccountsService(
                         profiBotServerSettings,
-                        new NuciApiClient(profiBotServerSettings.BaseUrl)));
+                        new NuciApiClient(profiBotServerSettings.BaseUrl),
+                        provider.GetRequiredService<ILogger>()));
             }
 
             return services.BuildServiceProvider();

@@ -1,43 +1,35 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Linq;
 
-using NuciLog.Core;
 using NuciAPI.Client;
 using NuciAPI.Responses;
+
+using NuciLog.Core;
 
 using PersonalDataLogger.Configuration;
 using PersonalDataLogger.Logging;
 
 namespace PersonalDataLogger.Client
 {
-    public class PersonalLogManagerService : IPersonalLogManagerService
+    public class PersonalLogManagerService(
+        PersonalLogManagerSettings settings,
+        ILogger logger,
+        INuciApiClient apiClient) : IPersonalLogManagerService
     {
-        const string RomaniaTimeZoneId = "Europe/Bucharest";
-        const string WindowsRomaniaTimeZoneId = "GTB Standard Time";
-
-        private readonly PersonalLogManagerSettings settings;
-        private readonly ILogger logger;
-        private readonly INuciApiClient apiClient;
+        private static string PersonalLogRejectionMessage =>
+            "The Personal Log Manager rejected the personal log.";
+        private static string RomaniaTimeZoneId => "Europe/Bucharest";
+        private static string WindowsRomaniaTimeZoneId => "GTB Standard Time";
 
         public PersonalLogManagerService(
             PersonalLogManagerSettings settings,
             ILogger logger)
             : this(settings, logger, new NuciApiClient(settings.BaseUrl))
         {
-        }
-
-        public PersonalLogManagerService(
-            PersonalLogManagerSettings settings,
-            ILogger logger,
-            INuciApiClient apiClient)
-        {
-            this.settings = settings;
-            this.logger = logger;
-            this.apiClient = apiClient;
         }
 
         public Task SendPersonalLogToManager(
@@ -102,7 +94,7 @@ namespace PersonalDataLogger.Client
                 response =
                     await apiClient.SendRequestAsync<StoreLogRequest, NuciApiSuccessResponse>(
                         HttpMethod.Post,
-                        new StoreLogRequest()
+                        new StoreLogRequest
                         {
                             Date = date,
                             Time = time,
@@ -132,14 +124,16 @@ namespace PersonalDataLogger.Client
 
             if (!response.IsSuccessful)
             {
-                NuciApiErrorResponse errorResponse = response as NuciApiErrorResponse;
+                HttpRequestException exception = new(response.Message);
 
                 logger.Error(
                     MyOperation.StoreLog,
                     OperationStatus.Failure,
-                    errorResponse.Message);
+                    PersonalLogRejectionMessage,
+                    exception,
+                    logInfos);
 
-                throw new HttpRequestException(errorResponse.Message);
+                throw exception;
             }
 
             logger.Info(
@@ -148,7 +142,7 @@ namespace PersonalDataLogger.Client
                 logInfos);
         }
 
-        static DateTimeOffset ConvertToRomanianTime(DateTimeOffset dateTime)
+        private static DateTimeOffset ConvertToRomanianTime(DateTimeOffset dateTime)
         {
             TimeZoneInfo romanianDateTime;
 

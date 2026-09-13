@@ -15,12 +15,11 @@ using PersonalDataLogger.Logging;
 
 namespace PersonalDataLogger.Client
 {
-    public class PersonalLogManagerService : IPersonalLogManagerService
+    public class PersonalLogManagerService(
+        PersonalLogManagerSettings settings,
+        ILogger logger,
+        INuciApiClient apiClient) : IPersonalLogManagerService
     {
-        private readonly PersonalLogManagerSettings settings;
-        private readonly ILogger logger;
-        private readonly INuciApiClient apiClient;
-
         private static string PersonalLogRejectionMessage =>
             "The Personal Log Manager rejected the personal log.";
         private static string RomaniaTimeZoneId => "Europe/Bucharest";
@@ -31,16 +30,6 @@ namespace PersonalDataLogger.Client
             ILogger logger)
             : this(settings, logger, new NuciApiClient(settings.BaseUrl))
         {
-        }
-
-        public PersonalLogManagerService(
-            PersonalLogManagerSettings settings,
-            ILogger logger,
-            INuciApiClient apiClient)
-        {
-            this.settings = settings;
-            this.logger = logger;
-            this.apiClient = apiClient;
         }
 
         public Task SendPersonalLogToManager(

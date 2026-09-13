@@ -4,6 +4,6 @@ namespace PersonalDataLogger.Client
 {
     public sealed class GetProfiAccountsRequest : NuciApiRequest
     {
-        public static GetProfiAccountsRequest Instance => new();
+        public static readonly GetProfiAccountsRequest Instance = new();
     }
 }

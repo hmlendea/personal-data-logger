@@ -201,5 +201,32 @@ namespace PersonalDataLogger.UnitTests.Client
                 async () => await service.SendPersonalLogToManager(DateTimeOffset.Now, "Test"),
                 Throws.InstanceOf<HttpRequestException>());
         }
+
+        [Test]
+        public void GivenARejectedResponse_WhenSendingPersonalLog_ThenTheFailureContextIsLogged()
+        {
+            NuciApiErrorResponse response = NuciApiErrorResponse.BadRequest;
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<StoreLogRequest, NuciApiSuccessResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<StoreLogRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    "/PersonalLog"))
+                .ReturnsAsync(response);
+
+            Assert.That(
+                async () => await service.SendPersonalLogToManager(DateTimeOffset.Now, "Test"),
+                Throws.InstanceOf<HttpRequestException>()
+                    .With.Message.EqualTo(response.Message));
+
+            mockLogger.Verify(
+                logger => logger.Error(
+                    It.IsAny<Operation>(),
+                    It.IsAny<OperationStatus>(),
+                    It.IsAny<string>(),
+                    It.IsAny<Exception>(),
+                    It.IsAny<IEnumerable<LogInfo>>()),
+                Times.Once);
+        }
     }
 }

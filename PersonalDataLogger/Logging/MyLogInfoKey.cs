@@ -10,9 +10,12 @@ namespace PersonalDataLogger.Logging
 
         }
 
+        public static LogInfoKey AccountCount => new MyLogInfoKey(nameof(AccountCount));
         public static LogInfoKey Amount => new MyLogInfoKey(nameof(Amount));
         public static LogInfoKey Data => new MyLogInfoKey(nameof(Data));
         public static LogInfoKey Date => new MyLogInfoKey(nameof(Date));
+        public static LogInfoKey EnabledAccountCount => new MyLogInfoKey(nameof(EnabledAccountCount));
+        public static LogInfoKey HttpMethod => new MyLogInfoKey(nameof(HttpMethod));
         public static LogInfoKey MaxAge => new MyLogInfoKey(nameof(MaxAge));
         public static LogInfoKey Password => new MyLogInfoKey(nameof(Password));
         public static LogInfoKey Port => new MyLogInfoKey(nameof(Port));

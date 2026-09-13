@@ -33,7 +33,7 @@ graph TB
     PDL["Personal Data Logger<br/>(This Service)"]
     PLMAPI["Personal Log Manager API<br/>(Event Sink)"]
     ProfiAPI["Profi Bot Server API<br/>(Account Data)"]
-    
+
     IMAP -->|Email Events| PDL
     PDL -->|Processed Events| PLMAPI
     PDL -->|Account Queries| ProfiAPI
@@ -48,27 +48,30 @@ The principal external boundaries are:
 
 ## 🏗️ Architectural Style
 
-Personal Data Logger implements a **concurrent pipeline pattern** with two independent worker threads orchestrated by a composition root. The service uses **dependency injection** (Microsoft.Extensions.DependencyInjection) to wire components and promote testability. The architecture emphasises **separation of concerns**: email polling and timed log execution are independent workers that may terminate independently, and platform-specific event extraction is delegated to pluggable processors.
+Personal Data Logger implements a **concurrent pipeline pattern** orchestrated by a composition root. The service uses **dependency injection** (Microsoft.Extensions.DependencyInjection) to wire components and promote testability. Email polling and timed log execution are independent workers that may terminate independently.
 
 ```mermaid
 graph LR
     Config["appsettings.json<br/>Environment"]
-    IOC["Composition Root<br/>(Program.CreateIOC)"]
+    IOC["Composition Root<br/>(Program)"]
     EmailW["EmailWorker<br/>(Polling Loop)"]
     TimedW["TimedLogWorker<br/>(Scheduler)"]
+    ProfiLog["ProfiBalanceTimedLog<br/>(Scheduled)"]
     Logger["Logger<br/>(NuciLog)"]
-    
+
     Config -->|Binds| IOC
     IOC -->|Creates| EmailW
     IOC -->|Creates| TimedW
+    IOC -->|Creates| ProfiLog
     IOC -->|Creates| Logger
     EmailW -.->|Logs| Logger
     TimedW -.->|Logs| Logger
+    ProfiLog -.->|Logs| Logger
 ```
 
 The principal architecture boundaries are:
 
-- **Composition Root** (`Program.cs`): Initialises configuration, registers dependencies, and starts two independent worker tasks.
+- **Composition Root** ([Program.cs](PersonalDataLogger/Program.cs)): Initialises configuration, registers dependencies, and starts the continuous workers.
 - **Email Worker** (`Service/EmailWorker.cs`): Polls IMAP, maintains checkpoint state, and dispatches emails to platform-specific processors.
 - **Timed Log Worker** (`Service/TimedLogWorker.cs`): Schedules and executes registered timed logs (currently `ProfiBalanceTimedLog`).
 - **Processors** (`Service/Processors/`): Platform-specific email extraction and event transformation (AliExpress, Gandi, PayPal, Profi, Opsgenie).
@@ -78,9 +81,9 @@ The principal architecture boundaries are:
 
 ```mermaid
 graph TD
-    Start["Application Start"] -->|Main| Compose["Compose Services<br/>(DI Container)"]
-    Compose -->|Start| Email["EmailWorker.WatchEmails"]
-    Compose -->|Start| Timed["TimedLogWorker.WatchTimedLogs"]
+    Start["Application Start"] -->|Compose| Compose["Compose Services<br/>(DI Container)"]
+    Compose --> Email["EmailWorker.WatchEmails"]
+    Compose -->|Profi Configured| Timed["TimedLogWorker.WatchTimedLogs"]
     Email -->|Poll Every 5s| CheckCP["Load Checkpoint<br/>(imap-checkpoint.json)"]
     CheckCP -->|Fetch| IMAPFetch["EmailProcessor.FetchUnseenEmails<br/>(by UID)"]
     IMAPFetch -->|For Each Email| Extract["Route to Platform Processor<br/>(AliExpress, Gandi, etc.)"]
@@ -88,22 +91,23 @@ graph TD
     ParseEvent -->|Convert TZ| SendAPI["PersonalLogManagerService.SendPersonalLogToManager<br/>(HMAC Auth)"]
     SendAPI -->|Update| SaveCP["Save Checkpoint<br/>(New UID)"]
     SaveCP -->|Sleep 5s| Email
-    
+
     Timed -->|For Each TimedLog| Wait["Wait Until NextExecution"]
-    Wait -->|Execute| ProfiLog["ProfiBalanceTimedLog.Execute<br/>(06:30 Daily)"]
+    Wait -->|06:30 Daily| ProfiLog["ProfiBalanceTimedLog.Execute"]
     ProfiLog -->|Fetch| ProfiAPI["ProfiAccountsService.GetAccounts<br/>(Authenticated)"]
-    ProfiAPI -->|Sum Balances| SendAPI
-    
-    Err["Exception<br/>(Any Component)"] -->|Catch| Shutdown["Log Fatal<br/>Exit Process"]
+    ProfiAPI -->|Sum Balances| SendBalance["Send Balance Event<br/>(HMAC Auth)"]
+    SendBalance --> Wait
+
+    Err["Unhandled Exception"] -->|Catch| Shutdown["Log Shutdown<br/>Exit Process"]
 ```
 
 The principal runtime sequence is:
 
-1. **Application Start**: Entry point in `Program.Main()` creates the DI service provider and retrieves `IEmailWorker` and `ITimedLogWorker`.
-2. **Worker Startup**: Two independent `Task.Run()` calls start `EmailWorker.WatchEmails()` and `TimedLogWorker.WatchTimedLogs()`. The main thread waits for the first worker to complete or throw.
-3. **Email Polling Loop**: `EmailWorker` polls IMAP every 5 seconds. On each iteration, it loads the checkpoint (UID validity and last processed UID), fetches emails newer than the checkpoint, routes each email to a platform-specific processor, and saves the checkpoint after successful processing.
+1. **Application Start**: The entry point creates the dependency injection service provider.
+2. **Worker Startup**: Two independent `Task.Run()` calls start `EmailWorker.WatchEmails()` and, when the Profi integration is configured, `TimedLogWorker.WatchTimedLogs()`. The main thread waits for the first worker to complete or throw.
+3. **Email Polling Loop**: `EmailWorker` polls IMAP every 5 seconds. On each iteration, it loads the checkpoint (UID validity and last processed UID), retrieves emails newer than the checkpoint, routes each email to a platform-specific processor, and saves the checkpoint after successful processing.
 4. **Scheduled Execution Loop**: `TimedLogWorker` iterates through registered `ITimedLog` implementations, calculates the next execution time for each, sleeps until that time, and executes the log (currently only `ProfiBalanceTimedLog` at 06:30 daily).
-5. **Error Handling**: Unhandled exceptions in either worker are caught at the composition root, logged as fatal, and cause the process to terminate.
+5. **Error Handling**: Unhandled exceptions are caught at the composition root, logged as fatal, and cause the process to terminate.
 
 ## 🧩 Components
 
@@ -133,7 +137,7 @@ graph LR
     PROC["Platform Processor<br/>(Extraction)"]
     LOG["Standardised Event<br/>(In-Memory)"]
     API["Personal Log Manager<br/>API"]
-    
+
     IMAP -->|Fetch| EMAIL
     CPF -->|Load| IMAP
     EMAIL -->|Route| PROC
@@ -147,7 +151,7 @@ graph LR
 | `EmailCheckpoint` (UID, UidValidity) | `EmailWorker` | JSON file at `${AppContext.BaseDirectory}/imap-checkpoint.json`; loaded at startup, saved after each email | Created on first run; persists across restarts to enable idempotent reprocessing; UID validity change triggers safe reset |
 | `AvailableEmail` (Subject, Body, Timestamp, etc.) | `EmailWorker` (transient) | In-memory POCO; fetched from IMAP and immediately routed to processors; no persistence | Single-use lifetime within polling iteration; not retained after routing to processor |
 | Standardised Event (EventType, Timestamp, Data Dictionary) | Processor-specific | JSON in HTTP POST body; converted to Romanian time (`Europe/Bucharest`) by `PersonalLogManagerService` before transmission | Sent immediately to API; no local persistence; successful POST response confirms receipt |
-| Account Balances (Account ID, Balance, Currency, IsEnabled) | `ProfiBalanceTimedLog` (transient) | Retrieved from Profi Bot Server API on schedule; aggregated in memory; no persistence | Fetched at 06:30 daily; summed for enabled accounts; sent immediately as event; no retention |
+| Account Balances (Account ID, Balance, Currency, IsEnabled) | `ProfiBalanceTimedLog` (transient) | Retrieved from Profi Bot Server API on schedule; aggregated in memory; no persistence | Summed for enabled accounts; sent immediately as an event; no retention |
 
 ## 🔌 Interfaces and Integrations
 
@@ -160,7 +164,7 @@ graph LR
 
 ## 🧭 Dependency Direction and Rules
 
-The service observes a **strict acyclic dependency direction**: composition root → workers → processors/services → configuration and logger. Processors are pluggable and stateless; they depend only on `IPersonalLogManagerService` and the logger. Workers depend on processors and HTTP clients. No component depends on a specific processor or worker implementation; all dependencies are injected via interfaces.
+The service observes a **strict acyclic dependency direction**: composition root → workers → processors/services → configuration and logger. Processors are pluggable and stateless; they depend only on `IPersonalLogManagerService` and the logger. Workers consume interfaces, and the timed-log worker schedules registered `ITimedLog` implementations.
 
 ```mermaid
 graph TB
@@ -177,7 +181,7 @@ graph TB
     EmailProc["EmailProcessor"]
     Config["Configuration"]
     Logger["ILogger"]
-    
+
     Program -->|creates| EmailW
     Program -->|creates| TimedW
     Program -->|creates| ProcA
@@ -188,7 +192,7 @@ graph TB
     Program -->|creates| ClientPLM
     Program -->|creates| ClientProfi
     Program -->|creates| EmailProc
-    
+
     EmailW -->|depends| EmailProc
     EmailW -->|depends| ProcA
     EmailW -->|depends| ProcG
@@ -197,15 +201,18 @@ graph TB
     EmailW -->|depends| ProcO
     EmailW -->|depends| Config
     EmailW -->|depends| Logger
-    
+
     TimedW -->|depends| Logger
-    
+    TimedW -->|schedules| ProfiLog
+    ProfiLog -->|depends| ClientPLM
+    ProfiLog -->|depends| ClientProfi
+
     ProcA -->|depends| ClientPLM
     ProcG -->|depends| ClientPLM
     ProcP -->|depends| ClientPLM
     ProcPr -->|depends| ClientPLM
     ProcO -->|depends| ClientPLM
-    
+
     ClientPLM -->|depends| Config
     ClientProfi -->|depends| Config
 ```
@@ -241,21 +248,20 @@ The service maintains a single persistent file, `imap-checkpoint.json`, in the a
 
 ## ✅ Testing and Verification
 
-The project structure includes no visible test project. The principal verification strategy is **manual integration testing**: operators poll the configured IMAP inbox with known test emails, observe the logged events and API calls, and verify that events reach the Personal Log Manager API with correct transformation and timezone conversion.
+The [PersonalDataLogger.UnitTests](PersonalDataLogger.UnitTests/) NUnit project verifies API clients, processor transformations, and timed-log scheduling and execution. Live integrations still require manual verification using non-production services and credentials.
 
 Verification points of architectural significance:
 
 - **Checkpoint persistence**: Restart the service mid-polling; verify that `imap-checkpoint.json` is loaded and no emails are reprocessed.
 - **Platform-specific extraction**: Send test emails to the IMAP inbox matching each processor's signal (e.g., AliExpress verification code); verify that events are emitted with correct platform and data fields.
 - **Timezone conversion**: Verify that event timestamps are converted to `Europe/Bucharest` time in API requests.
-- **Timed log execution**: Advance system clock to 06:30; verify that `ProfiBalanceTimedLog` executes and sends an event with summed account balances.
+- **Timed log execution**: Advance the system clock to 06:30; verify that `ProfiBalanceTimedLog` executes and sends an event with the summed enabled-account balance.
 - **Error handling**: Disconnect IMAP server mid-polling; verify that exceptions are logged and the process terminates.
 
 Execute the principal automated verification with:
 
 ```bash
-dotnet build
-dotnet run
+dotnet test personal-data-logger.slnx
 ```
 
 ## ⚠️ Design Constraints
@@ -272,18 +278,23 @@ dotnet run
 
 ### Error Handling
 
-Exceptions are caught at the composition root in `Program.Main()`. All exceptions result in `logger.Fatal()` and process termination. There is no exception translation, retry loop, or fallback at the worker level. Platform processors do not throw on unparseable email data; they emit partial events with default or warning-logged fields.
+External client failures are logged at their owning boundary and rethrown. During scheduled execution, `TimedLogWorker` records a timed-log failure and continues its loop. There is no retry loop or fallback. Platform processors do not throw on unparseable email data; they emit partial events with default or warning-logged fields.
 
 ### Observability
 
-The service logs to NuciLog with the following operation keys defined in `Logging/MyOperation.cs`:
+The service logs to NuciLog with lifecycle operations and the operation keys defined in [MyOperation.cs](PersonalDataLogger/Logging/MyOperation.cs):
 - `StartUp`: Application startup
 - `ShutDown`: Application shutdown
+- `EmailLogIn` and `EmailLogOut`: IMAP session boundaries
 - `WatchEmails`: Email polling loop
+- `ProcessEmail`: Individual email processing
 - `ExecuteTimedLog`: Timed log execution
+- `GetProfiAccounts`: Profi Bot Server request and response validation
+- `CalculateProfiAccountsBalance`: Enabled-account filtering and balance aggregation
+- `StoreLog`: Personal Log Manager request and response
 - `Unknown`: Catch-all for unclassified operations
 
-Typical logs include IMAP login/logout, email processing progress (UID, subject, date), and API request status. No structured tracing or spans are implemented; correlation is limited to operation keys. Logs are written to `logfile.log` in the application base directory (configured in `appsettings.json`).
+The Profi balance path records the HTTP method, response codes, total and enabled account counts, and aggregate amount. It does not record credentials, the Profi username, request endpoint, or individual account balances. No structured tracing or spans are implemented; correlation is limited to operation keys. The log destination is configured in `appsettings.json`.
 
 ### Configuration
 

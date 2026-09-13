@@ -11,7 +11,7 @@ using PersonalDataLogger.Service.Processors;
 namespace PersonalDataLogger.UnitTests.Service.Processors
 {
     [TestFixture]
-    public class ProfiProcessorTests
+    public sealed class ProfiProcessorTests
     {
         private Mock<IPersonalLogManagerService> mockPersonalLogManagerService;
         private ProfiProcessor processor;
@@ -37,6 +37,25 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
                     email.Timestamp,
                     "BotPrizeWinning",
                     It.IsAny<Dictionary<string, string>>()),
+                Times.Once);
+        }
+
+        [Test]
+        public void GivenEmailWithRomanianProfiPrizeSubject_WhenProcessing_ThenRomanianPrizeDetailsAreExtracted()
+        {
+            AvailableEmail email = BuildAvailableEmail(
+                subject: "Ai câștigat un premiu Profi! (Voucher 100 RON)",
+                body: "Utilizator: Utilizator\nCont: Cont utilizator (12345)\nSold cont: 100 RON\nArticol: Voucher 100 RON\nDată și oră: 13/09/2026 12:00 (+03:00)\nExpirare: 20/09/2026");
+
+            processor.ProcessEmail(email);
+
+            mockPersonalLogManagerService.Verify(
+                s => s.SendPersonalLogToManager(
+                    It.IsAny<DateTimeOffset>(),
+                    "BotPrizeWinning",
+                    It.Is<Dictionary<string, string>>(d =>
+                        d["account_id"] == "12345"
+                        && d["prize_description"] == "Voucher 100 RON")),
                 Times.Once);
         }
 

@@ -162,6 +162,57 @@ namespace PersonalDataLogger.UnitTests.Service
         }
 
         [Test]
+        public void GivenMultipleConfiguredTimes_WhenCurrentTimeIsBeforeTheSecondTime_ThenReturnsTheSecondTimeToday()
+        {
+            settings.ScheduledHours = "18:00, 06:30";
+            DateTime currentTime = new(2026, 9, 8, 7, 0, 0);
+            DateTimeOffset current = new(currentTime, TimeZoneInfo.Local.GetUtcOffset(currentTime));
+
+            DateTimeOffset nextExecution = timedLog.GetNextExecution(current);
+
+            Assert.That(nextExecution.LocalDateTime, Is.EqualTo(new DateTime(2026, 9, 8, 18, 0, 0)));
+        }
+
+        [Test]
+        public void GivenMultipleConfiguredTimes_WhenCurrentTimeIsAfterTheLastTime_ThenReturnsTheFirstTimeTomorrow()
+        {
+            settings.ScheduledHours = "18:00, 06:30";
+            DateTime currentTime = new(2026, 9, 8, 19, 0, 0);
+            DateTimeOffset current = new(currentTime, TimeZoneInfo.Local.GetUtcOffset(currentTime));
+
+            DateTimeOffset nextExecution = timedLog.GetNextExecution(current);
+
+            Assert.That(nextExecution.LocalDateTime, Is.EqualTo(new DateTime(2026, 9, 9, 6, 30, 0)));
+        }
+
+        [Test]
+        public void GivenInvalidConfiguredTime_WhenGettingNextExecution_ThenThrowsFormatException()
+        {
+            settings.ScheduledHours = "06:30, invalid";
+            DateTime currentTime = new(2026, 9, 8, 6, 0, 0);
+            DateTimeOffset current = new(currentTime, TimeZoneInfo.Local.GetUtcOffset(currentTime));
+
+            Assert.That(
+                () => timedLog.GetNextExecution(current),
+                Throws.TypeOf<FormatException>());
+        }
+
+        [TestCase("")]
+        [TestCase("24:00")]
+        [TestCase("06:30,")]
+        public void GivenInvalidScheduledHoursConfiguration_WhenGettingNextExecution_ThenThrowsFormatException(
+            string scheduledHours)
+        {
+            settings.ScheduledHours = scheduledHours;
+            DateTime currentTime = new(2026, 9, 8, 6, 0, 0);
+            DateTimeOffset current = new(currentTime, TimeZoneInfo.Local.GetUtcOffset(currentTime));
+
+            Assert.That(
+                () => timedLog.GetNextExecution(current),
+                Throws.TypeOf<FormatException>());
+        }
+
+        [Test]
         public void GivenNextExecutionCalculation_WhenCheckingTimeZoneOffset_ThenOffsetIsPreserved()
         {
             DateTime currentTime = new(2026, 9, 8, 6, 0, 0);

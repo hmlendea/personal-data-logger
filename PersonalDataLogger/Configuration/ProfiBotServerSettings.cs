@@ -8,6 +8,8 @@ namespace PersonalDataLogger.Configuration
 
         public string BaseUrl { get; set; }
 
+        public string ScheduledHours { get; set; } = "06:30";
+
         public string ClientId { get; set; }
 
         public string HmacSharedSecretKey { get; set; }

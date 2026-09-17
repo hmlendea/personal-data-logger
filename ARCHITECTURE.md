@@ -93,7 +93,7 @@ graph TD
     SaveCP -->|Sleep 5s| Email
 
     Timed -->|For Each TimedLog| Wait["Wait Until NextExecution"]
-    Wait -->|06:30 Daily| ProfiLog["ProfiBalanceTimedLog.Execute"]
+    Wait -->|Configured daily times| ProfiLog["ProfiBalanceTimedLog.Execute"]
     ProfiLog -->|Fetch| ProfiAPI["ProfiAccountsService.GetAccounts<br/>(Authenticated)"]
     ProfiAPI -->|Sum Balances| SendBalance["Send Balance Event<br/>(HMAC Auth)"]
     SendBalance --> Wait
@@ -106,7 +106,7 @@ The principal runtime sequence is:
 1. **Application Start**: The entry point creates the dependency injection service provider.
 2. **Worker Startup**: Two independent `Task.Run()` calls start `EmailWorker.WatchEmails()` and, when the Profi integration is configured, `TimedLogWorker.WatchTimedLogs()`. The main thread waits for the first worker to complete or throw.
 3. **Email Polling Loop**: `EmailWorker` polls IMAP every 5 seconds. On each iteration, it loads the checkpoint (UID validity and last processed UID), retrieves emails newer than the checkpoint, routes each email to a platform-specific processor, and saves the checkpoint after successful processing.
-4. **Scheduled Execution Loop**: `TimedLogWorker` iterates through registered `ITimedLog` implementations, calculates the next execution time for each, sleeps until that time, and executes the log (currently only `ProfiBalanceTimedLog` at 06:30 daily).
+4. **Scheduled Execution Loop**: `TimedLogWorker` iterates through registered `ITimedLog` implementations, calculates the next execution time for each, sleeps until that time, and executes the log (currently only `ProfiBalanceTimedLog`, using the comma-separated `profiBotServerSettings.scheduledHours` values in local time).
 5. **Error Handling**: Unhandled exceptions are caught at the composition root, logged as fatal, and cause the process to terminate.
 
 ## 🧩 Components
@@ -115,7 +115,7 @@ The principal runtime sequence is:
 |-----------|----------------|------------------------|-----------------------|
 | `EmailWorker` | Polling loop: IMAP login, checkpoint load/save, email retrieval, platform routing, API dispatch | `IEmailProcessor`, five `I*Processor` implementations, `ImapSettings`, `ILogger` | Singleton, retrieved in `Main()` |
 | `TimedLogWorker` | Scheduler: iterate registered `ITimedLog` implementations, calculate next execution, execute at scheduled time | `IEnumerable<ITimedLog>`, `ILogger` | Singleton, retrieved in `Main()` |
-| `ProfiBalanceTimedLog` | Daily schedule (06:30): retrieve Profi accounts, sum balances for enabled accounts, send as timed log event | `IProfiAccountsService`, `IPersonalLogManagerService` | Singleton, registered in `ServiceCollection` |
+| `ProfiBalanceTimedLog` | Configured daily schedule: retrieve Profi accounts, sum balances for enabled accounts, send as timed log event | `IProfiAccountsService`, `IPersonalLogManagerService`, `ProfiBotServerSettings` | Singleton, registered in `ServiceCollection` |
 | `EmailProcessor` | IMAP connectivity: login, UID validity check, fetch emails by UID range | `ImapSettings`, `ILogger` | Singleton, injected into `EmailWorker` |
 | `AliExpressProcessor` | Platform extraction: detect verification code emails, parse email address, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `GandiProcessor` | Platform extraction: detect new device connection, parse username and IP address via regex, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |

@@ -143,6 +143,8 @@ The repository contains a .NET solution with separate application and unit-test 
 
 See the [architecture documentation](ARCHITECTURE.md) for the system context, principal components, runtime flows, ownership boundaries, dependencies, constraints, and extension points.
 
+Agent-oriented traceability is available in the [feature map](docs/feature-map.md), [code map](docs/code-map.md), and [documentation coverage audit](docs/documentation-coverage.md).
+
 ## 🛠️ Development
 
 ### Requirements

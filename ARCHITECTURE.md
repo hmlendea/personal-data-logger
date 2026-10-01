@@ -308,13 +308,40 @@ Two independent worker threads (`EmailWorker` and `TimedLogWorker`) run concurre
 
 | Area | Path |
 |------|------|
-| Entry point and composition root | [Program.cs](Program.cs) |
-| Email polling and checkpoint state | [Service/EmailWorker.cs](Service/EmailWorker.cs) |
-| Scheduled log execution | [Service/TimedLogWorker.cs](Service/TimedLogWorker.cs) |
-| Profi balance timed log | [Service/ProfiBalanceTimedLog.cs](Service/ProfiBalanceTimedLog.cs) |
-| IMAP connectivity | [Service/Processors/EmailProcessor.cs](Service/Processors/EmailProcessor.cs) |
-| Platform-specific processors | [Service/Processors/](Service/Processors/) |
-| Personal Log Manager API client | [Client/PersonalLogManagerService.cs](Client/PersonalLogManagerService.cs) |
-| Profi Bot Server API client | [Client/ProfiAccountsService.cs](Client/ProfiAccountsService.cs) |
-| Configuration model classes | [Configuration/](Configuration/) |
-| Logging operation definitions | [Logging/](Logging/) |
+| Entry point and composition root | [Program.cs](PersonalDataLogger/Program.cs) |
+| Email polling and checkpoint state | [Service/EmailWorker.cs](PersonalDataLogger/Service/EmailWorker.cs) |
+| Scheduled log execution | [Service/TimedLogWorker.cs](PersonalDataLogger/Service/TimedLogWorker.cs) |
+| Profi balance timed log | [Service/ProfiBalanceTimedLog.cs](PersonalDataLogger/Service/ProfiBalanceTimedLog.cs) |
+| IMAP connectivity | [Service/Processors/EmailProcessor.cs](PersonalDataLogger/Service/Processors/EmailProcessor.cs) |
+| Platform-specific processors | [Service/Processors/](PersonalDataLogger/Service/Processors/) |
+| Personal Log Manager API client | [Client/PersonalLogManagerService.cs](PersonalDataLogger/Client/PersonalLogManagerService.cs) |
+| Profi Bot Server API client | [Client/ProfiAccountsService.cs](PersonalDataLogger/Client/ProfiAccountsService.cs) |
+| Configuration model classes | [Configuration/](PersonalDataLogger/Configuration/) |
+| Logging operation definitions | [Logging/](PersonalDataLogger/Logging/) |
+
+## Implementation Reference
+
+| Responsibility | Location | Symbol |
+| --- | --- | --- |
+| Composition and registration | [Program.cs](PersonalDataLogger/Program.cs) | `Program.Main`, `Program.CreateIOC` |
+| Email polling and checkpoint process | [Service/EmailWorker.cs](PersonalDataLogger/Service/EmailWorker.cs) | `EmailWorker.WatchEmails`, `ProcessAvailableEmails`, `LoadCheckpoint`, `SaveCheckpoint` |
+| IMAP retrieval | [Service/Processors/EmailProcessor.cs](PersonalDataLogger/Service/Processors/EmailProcessor.cs) | `EmailProcessor.LogIn`, `GetAvailableEmails`, `LogOut` |
+| Timed-log scheduling | [Service/TimedLogWorker.cs](PersonalDataLogger/Service/TimedLogWorker.cs) | `TimedLogWorker.WatchTimedLogs`, `WatchTimedLog` |
+| Profi balance event | [Service/ProfiBalanceTimedLog.cs](PersonalDataLogger/Service/ProfiBalanceTimedLog.cs) | `ProfiBalanceTimedLog.GetNextExecution`, `Execute` |
+| Platform transformations | [Service/Processors/](PersonalDataLogger/Service/Processors/) | `*Processor.ProcessEmail` |
+| Personal Log Manager client | [Client/PersonalLogManagerService.cs](PersonalDataLogger/Client/PersonalLogManagerService.cs) | `SendPersonalLogToManager`, `ConvertToRomanianTime` |
+| Profi account client | [Client/ProfiAccountsService.cs](PersonalDataLogger/Client/ProfiAccountsService.cs) | `GetEnabledAccountsBalance`, `CalculateEnabledAccountsBalance` |
+| Configuration and data | [Configuration/](PersonalDataLogger/Configuration/), [Service/Models/](PersonalDataLogger/Service/Models/), [Client/](PersonalDataLogger/Client/) | Settings and DTO types |
+
+## Test Reference
+
+| Behaviour | Location | Test group |
+| --- | --- | --- |
+| Personal Log Manager request/auth/timezone behaviour | [PersonalLogManagerServiceTests.cs](PersonalDataLogger.UnitTests/Client/PersonalLogManagerServiceTests.cs) | `PersonalLogManagerServiceTests` |
+| Profi API and balance aggregation | [ProfiAccountsServiceTests.cs](PersonalDataLogger.UnitTests/Client/ProfiAccountsServiceTests.cs) | `ProfiAccountsServiceTests` |
+| Profi request validation/data contract | [GetProfiAccountsRequestTests.cs](PersonalDataLogger.UnitTests/Client/GetProfiAccountsRequestTests.cs) | `GetProfiAccountsRequestTests` |
+| Daily schedule and timed event | [ProfiBalanceTimedLogTests.cs](PersonalDataLogger.UnitTests/Service/ProfiBalanceTimedLogTests.cs) | `ProfiBalanceTimedLogTests` |
+| Platform parsing and template mapping | [Service/Processors/](PersonalDataLogger.UnitTests/Service/Processors/) | Matching `*ProcessorTests` classes |
+| Email worker, IMAP lifecycle, timed worker, composition, and end-to-end flows | None | Coverage gap; no direct tests |
+
+For bidirectional feature and source navigation, see [docs/feature-map.md](docs/feature-map.md), [docs/code-map.md](docs/code-map.md), and [docs/documentation-coverage.md](docs/documentation-coverage.md).

@@ -13,10 +13,12 @@ This map links each substantial capability to its entry point, implementation, c
 | Checkpoint persistence | [PersonalDataLogger/Service/Models/EmailCheckpoint.cs](../PersonalDataLogger/Service/Models/EmailCheckpoint.cs), [EmailWorker.cs](../PersonalDataLogger/Service/EmailWorker.cs) | `LoadCheckpoint`, `SaveCheckpoint`; `imap-checkpoint.json` |
 | Configuration | [PersonalDataLogger/Configuration/ImapSettings.cs](../PersonalDataLogger/Configuration/ImapSettings.cs), [PersonalDataLogger/appsettings.json](../PersonalDataLogger/appsettings.json) | Server, credentials, port, `MaxEmailAge` |
 | Registration | [PersonalDataLogger/Program.cs](../PersonalDataLogger/Program.cs) | `CreateIOC`; singleton `IEmailProcessor` and `IEmailWorker` |
-| Tests | [PersonalDataLogger.UnitTests/](../PersonalDataLogger.UnitTests/) | No direct `EmailWorker` or `EmailProcessor` tests |
+| Tests | [EmailWorkerTests.cs](../PersonalDataLogger.UnitTests/Service/EmailWorkerTests.cs) | Connection retries, UID retention across failed fetches, non-retryable failures, and worker lifecycle; no direct `EmailProcessor` tests |
 | Integration/e2e | None | IMAP-to-API process has no automated integration test |
 
 The process loads the checkpoint, resets it when IMAP UID validity changes, filters emails by age, routes by sender substring, dispatches a platform processor, and saves the last UID after each email. Unmatched and over-age messages advance the checkpoint without producing an event.
+
+IMAP connection failures during login or retrieval are retried after five seconds with a fresh client and the same requested UID. Retries have no fixed limit and do not advance the checkpoint. Authentication failures and errors outside IMAP retrieval are not covered by this retry policy.
 
 ## Platform Email Transformations
 

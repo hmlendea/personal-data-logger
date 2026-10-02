@@ -17,11 +17,11 @@ namespace PersonalDataLogger.UnitTests.Service
     [TestFixture]
     public class ProfiBalanceTimedLogTests
     {
-        private Mock<IProfiAccountsService> mockProfiAccountsService;
-        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService;
-        private Mock<ILogger> mockLogger;
-        private ProfiBotServerSettings settings;
-        private ProfiBalanceTimedLog timedLog;
+        private Mock<IProfiAccountsService> mockProfiAccountsService = null!;
+        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService = null!;
+        private Mock<ILogger> mockLogger = null!;
+        private ProfiBotServerSettings settings = null!;
+        private ProfiBalanceTimedLog timedLog = null!;
 
         [SetUp]
         public void SetUp()

@@ -13,8 +13,8 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
     [TestFixture]
     public class GandiProcessorTests
     {
-        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService;
-        private GandiProcessor processor;
+        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService = null!;
+        private GandiProcessor processor = null!;
 
         [SetUp]
         public void SetUp()

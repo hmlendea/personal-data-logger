@@ -13,8 +13,8 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
     [TestFixture]
     public class PayPalProcessorTests
     {
-        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService;
-        private PayPalProcessor processor;
+        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService = null!;
+        private PayPalProcessor processor = null!;
 
         [SetUp]
         public void SetUp()

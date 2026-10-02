@@ -18,10 +18,10 @@ namespace PersonalDataLogger.UnitTests.Client
     [TestFixture]
     public class PersonalLogManagerServiceTests
     {
-        private Mock<ILogger> mockLogger;
-        private Mock<INuciApiClient> mockApiClient;
-        private PersonalLogManagerSettings settings;
-        private PersonalLogManagerService service;
+        private Mock<ILogger> mockLogger = null!;
+        private Mock<INuciApiClient> mockApiClient = null!;
+        private PersonalLogManagerSettings settings = null!;
+        private PersonalLogManagerService service = null!;
 
         [SetUp]
         public void SetUp()

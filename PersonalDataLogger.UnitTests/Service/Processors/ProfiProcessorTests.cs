@@ -13,8 +13,8 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
     [TestFixture]
     public sealed class ProfiProcessorTests
     {
-        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService;
-        private ProfiProcessor processor;
+        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService = null!;
+        private ProfiProcessor processor = null!;
 
         [SetUp]
         public void SetUp()

@@ -14,9 +14,9 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
     [TestFixture]
     public class OpsGenieEmailProcessorTests
     {
-        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService;
-        private PersonalSettings settings;
-        private OpsGenieEmailProcessor processor;
+        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService = null!;
+        private PersonalSettings settings = null!;
+        private OpsGenieEmailProcessor processor = null!;
 
         [SetUp]
         public void SetUp()

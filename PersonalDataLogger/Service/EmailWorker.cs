@@ -141,6 +141,10 @@ namespace PersonalDataLogger.Service
                     {
                         opsGenieEmailProcessor.ProcessEmail(email);
                     }
+                    else if (email.Sender.Contains("paypal"))
+                    {
+                        payPalProcessor.ProcessEmail(email);
+                    }
                     else if (email.Sender.Contains("profi_bot_server"))
                     {
                         profiProcessor.ProcessEmail(email);

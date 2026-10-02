@@ -19,10 +19,10 @@ namespace PersonalDataLogger.UnitTests.Client
     [TestFixture]
     public class ProfiAccountsServiceTests
     {
-        private ProfiBotServerSettings settings;
-        private Mock<INuciApiClient> mockApiClient;
-        private Mock<ILogger> mockLogger;
-        private ProfiAccountsService service;
+        private ProfiBotServerSettings settings = null!;
+        private Mock<INuciApiClient> mockApiClient = null!;
+        private Mock<ILogger> mockLogger = null!;
+        private ProfiAccountsService service = null!;
 
         [SetUp]
         public void SetUp()
@@ -233,7 +233,7 @@ namespace PersonalDataLogger.UnitTests.Client
                     It.IsAny<GetProfiAccountsRequest>(),
                     It.IsAny<NuciApiRequestAuthorisationInfo>(),
                     It.IsAny<string>()))
-                .ReturnsAsync((NuciApiResponse)null);
+                .ReturnsAsync((NuciApiResponse)null!);
 
             Assert.That(
                 async () => await service.GetEnabledAccountsBalance(),

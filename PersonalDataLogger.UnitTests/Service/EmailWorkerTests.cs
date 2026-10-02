@@ -23,8 +23,8 @@ namespace PersonalDataLogger.UnitTests.Service
     [TestFixture]
     public class EmailWorkerTests
     {
-        private Mock<IEmailProcessor> emailProcessor;
-        private Mock<EmailWorker> emailWorker;
+        private Mock<IEmailProcessor> emailProcessor = null!;
+        private Mock<EmailWorker> emailWorker = null!;
 
         private static IEnumerable<Exception> ConnectionFailures =>
         [

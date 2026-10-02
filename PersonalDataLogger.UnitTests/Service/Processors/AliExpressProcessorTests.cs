@@ -14,9 +14,9 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
     [TestFixture]
     public class AliExpressProcessorTests
     {
-        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService;
-        private AliExpressSettings settings;
-        private AliExpressProcessor processor;
+        private Mock<IPersonalLogManagerService> mockPersonalLogManagerService = null!;
+        private AliExpressSettings settings = null!;
+        private AliExpressProcessor processor = null!;
 
         [SetUp]
         public void SetUp()

@@ -11,6 +11,7 @@ Personal Data Logger is a .NET 10 background service that polls an IMAP inbox, p
 
 - [Capabilities](#-capabilities)
 - [Usage](#-usage)
+- [Known Limitations](#-known-limitations)
 - [System Requirements](#-system-requirements)
 - [Installation](#-installation)
 - [Configuration](#-configuration)
@@ -27,6 +28,7 @@ Personal Data Logger is a .NET 10 background service that polls an IMAP inbox, p
 
 - Connects to an IMAP server and reads inbox emails
 - Polls continuously (every 5 seconds)
+- Reconnects automatically after transient IMAP connection failures while retaining the requested UID
 - Keeps a persistent checkpoint based on IMAP UID to prevent duplicate processing
 - Applies maximum email age filtering
 - Retrieves Profi Bot Server account balances at configured local times
@@ -39,6 +41,11 @@ Personal Data Logger is a .NET 10 background service that polls an IMAP inbox, p
 ```bash
 dotnet run --project PersonalDataLogger/PersonalDataLogger.csproj
 ```
+
+## ⚠️ Known Limitations
+
+- Transient IMAP connection failures are retried indefinitely at five-second intervals. Authentication, email processing, and checkpoint persistence failures are not retried and terminate the worker.
+- Events sent to the Personal Log Manager API are not queued locally or retried after an HTTP failure.
 
 ## 🖥️ System Requirements
 

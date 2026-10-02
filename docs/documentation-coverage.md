@@ -6,7 +6,7 @@ This is the traceability audit for the current repository. It records both direc
 
 | Concept | Entry point | Principal implementation | Data/configuration | Registration | Tests | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| Email polling and dispatch | `Program.Main` | `EmailWorker.WatchEmails`, `ProcessAvailableEmails` | `AvailableEmail*`, `EmailCheckpoint`, `ImapSettings` | `Program.CreateIOC` | None direct | Documented; orchestration gap |
+| Email polling and dispatch | `Program.Main` | `EmailWorker.WatchEmails`, `GetAvailableEmails`, `ProcessAvailableEmails` | `AvailableEmail*`, `EmailCheckpoint`, `ImapSettings` | `Program.CreateIOC` | [EmailWorkerTests.cs](../PersonalDataLogger.UnitTests/Service/EmailWorkerTests.cs) | Connection retries and lifecycle covered; dispatch and persistence gaps remain |
 | IMAP retrieval | `EmailWorker.WatchEmails` | `EmailProcessor.LogIn`, `GetAvailableEmails`, `LogOut` | `ImapSettings` | `Program.CreateIOC` | None direct | Documented; protocol gap |
 | AliExpress processing | Email sender route | `AliExpressProcessor.ProcessEmail` | `AvailableEmail`, `AliExpressSettings` | `Program.CreateIOC` | `AliExpressProcessorTests` | Covered by unit tests only |
 | Gandi processing | Email sender route | `GandiProcessor.ProcessEmail` | `AvailableEmail` | `Program.CreateIOC` | `GandiProcessorTests` | Covered by unit tests only |
@@ -44,7 +44,7 @@ All substantial production areas are indexed in [code-map.md](code-map.md). The 
 ## Explicit Gaps
 
 - No integration or end-to-end test project exists.
-- No direct tests cover `Program`, `EmailWorker`, `EmailProcessor`, or `TimedLogWorker`.
+- No direct tests cover `Program`, `EmailProcessor`, or `TimedLogWorker`. `EmailWorker` tests cover connection retries, UID retention across failed fetches, and lifecycle, but not successful dispatch or checkpoint persistence.
 - No automated check validates configuration binding, required secrets, or conditional Profi registration.
 - No automated release/deployment test validates the external script invoked by `release.sh`.
 - External API failure, retry absence, checkpoint file permissions, and IMAP UID reset behaviour are not covered by end-to-end tests.

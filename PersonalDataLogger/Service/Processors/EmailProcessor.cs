@@ -19,10 +19,13 @@ namespace PersonalDataLogger.Service.Processors
     {
         readonly ImapSettings imapSettings = imapSettings;
         readonly ILogger logger = logger;
-        readonly ImapClient imapClient = new();
+        private ImapClient imapClient = new();
 
         public void LogIn()
         {
+            imapClient.Dispose();
+            imapClient = new();
+
             IEnumerable<LogInfo> logInfos =
             [
                 new(MyLogInfoKey.Server, imapSettings.Server),

@@ -1,7 +1,11 @@
 using System;
 using System.IO;
+using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
+
+using MailKit;
+using MailKit.Net.Imap;
 using PersonalDataLogger.Logging;
 using NuciLog.Core;
 using PersonalDataLogger.Configuration;
@@ -25,10 +29,12 @@ namespace PersonalDataLogger.Service
 
         readonly string checkpointFilePath = Path.Combine(AppContext.BaseDirectory, CheckpointFileName);
 
+        private bool isLoggedIn;
+
+        private static TimeSpan PollInterval => TimeSpan.FromSeconds(5);
+
         public void WatchEmails()
         {
-            emailProcessor.LogIn();
-
             EmailCheckpoint checkpoint = LoadCheckpoint();
 
             logger.Info(
@@ -42,7 +48,7 @@ namespace PersonalDataLogger.Service
                 {
                     checkpoint = ProcessAvailableEmails(checkpoint);
 
-                    Thread.Sleep(TimeSpan.FromSeconds(5));
+                    WaitForNextPoll();
                 }
             }
             catch (Exception exception)
@@ -56,13 +62,46 @@ namespace PersonalDataLogger.Service
             }
             finally
             {
+                isLoggedIn = false;
                 emailProcessor.LogOut();
+            }
+        }
+
+        protected virtual void WaitForNextPoll() => Thread.Sleep(PollInterval);
+
+        private AvailableEmailBatch GetAvailableEmails(uint lastProcessedUid)
+        {
+            while (true)
+            {
+                try
+                {
+                    if (!isLoggedIn)
+                    {
+                        emailProcessor.LogIn();
+                        isLoggedIn = true;
+                    }
+
+                    return emailProcessor.GetAvailableEmails(lastProcessedUid);
+                }
+                catch (Exception exception) when (
+                    exception is IOException or SocketException or
+                    ImapProtocolException or ServiceNotConnectedException)
+                {
+                    isLoggedIn = false;
+                    logger.Warn(
+                        MyOperation.WatchEmails,
+                        OperationStatus.InProgress,
+                        "The IMAP connection failed. Reconnecting after the polling delay.",
+                        exception);
+                }
+
+                WaitForNextPoll();
             }
         }
 
         EmailCheckpoint ProcessAvailableEmails(EmailCheckpoint checkpoint)
         {
-            AvailableEmailBatch batch = emailProcessor.GetAvailableEmails(checkpoint.LastProcessedUid);
+            AvailableEmailBatch batch = GetAvailableEmails(checkpoint.LastProcessedUid);
 
             if (checkpoint.UidValidity != batch.UidValidity)
             {
@@ -73,7 +112,7 @@ namespace PersonalDataLogger.Service
                 };
 
                 SaveCheckpoint(checkpoint);
-                batch = emailProcessor.GetAvailableEmails(checkpoint.LastProcessedUid);
+                batch = GetAvailableEmails(checkpoint.LastProcessedUid);
             }
 
             DateTime minAllowedDate = DateTime.UtcNow.AddSeconds(-Math.Max(0, imapSettings.MaxEmailAge));

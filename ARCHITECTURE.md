@@ -84,13 +84,15 @@ graph TD
     Start["Application Start"] -->|Compose| Compose["Compose Services<br/>(DI Container)"]
     Compose --> Email["EmailWorker.WatchEmails"]
     Compose -->|Profi Configured| Timed["TimedLogWorker.WatchTimedLogs"]
-    Email -->|Poll Every 5s| CheckCP["Load Checkpoint<br/>(imap-checkpoint.json)"]
-    CheckCP -->|Fetch| IMAPFetch["EmailProcessor.FetchUnseenEmails<br/>(by UID)"]
+    Email --> CheckCP["Load Checkpoint<br/>(imap-checkpoint.json)"]
+    CheckCP -->|Fetch| IMAPFetch["EmailProcessor.GetAvailableEmails<br/>(by UID)"]
+    IMAPFetch -->|Connection failure| Reconnect["Wait 5s and reconnect<br/>Retry the same UID"]
+    Reconnect --> IMAPFetch
     IMAPFetch -->|For Each Email| Extract["Route to Platform Processor<br/>(AliExpress, Gandi, etc.)"]
     Extract -->|If Matches| ParseEvent["Extract Event Data<br/>(Username, IP, Prize, etc.)"]
     ParseEvent -->|Convert TZ| SendAPI["PersonalLogManagerService.SendPersonalLogToManager<br/>(HMAC Auth)"]
     SendAPI -->|Update| SaveCP["Save Checkpoint<br/>(New UID)"]
-    SaveCP -->|Sleep 5s| Email
+    SaveCP -->|Sleep 5s| IMAPFetch
 
     Timed -->|For Each TimedLog| Wait["Wait Until NextExecution"]
     Wait -->|Configured daily times| ProfiLog["ProfiBalanceTimedLog.Execute"]
@@ -105,9 +107,9 @@ The principal runtime sequence is:
 
 1. **Application Start**: The entry point creates the dependency injection service provider.
 2. **Worker Startup**: Two independent `Task.Run()` calls start `EmailWorker.WatchEmails()` and, when the Profi integration is configured, `TimedLogWorker.WatchTimedLogs()`. The main thread waits for the first worker to complete or throw.
-3. **Email Polling Loop**: `EmailWorker` polls IMAP every 5 seconds. On each iteration, it loads the checkpoint (UID validity and last processed UID), retrieves emails newer than the checkpoint, routes each email to a platform-specific processor, and saves the checkpoint after successful processing.
+3. **Email Polling Loop**: `EmailWorker` loads the checkpoint (UID validity and last processed UID) at startup and polls IMAP every 5 seconds. Each iteration retrieves emails newer than the checkpoint, routes each email to a platform-specific processor, and saves the checkpoint after successful processing.
 4. **Scheduled Execution Loop**: `TimedLogWorker` iterates through registered `ITimedLog` implementations, calculates the next execution time for each, sleeps until that time, and executes the log (currently only `ProfiBalanceTimedLog`, using the comma-separated `profiBotServerSettings.scheduledHours` values in local time).
-5. **Error Handling**: Unhandled exceptions are caught at the composition root, logged as fatal, and cause the process to terminate.
+5. **Error Handling**: IMAP connection failures during login or retrieval are logged and retried after 5 seconds, using a fresh client and the same requested UID. Authentication, command, processing, and checkpoint-write failures are not retried; unhandled exceptions reach the composition root, are logged as fatal, and terminate the process.
 
 ## 🧩 Components
 
@@ -157,7 +159,7 @@ graph LR
 
 | Interface or Integration | Direction | Contract | Owner | Failure Semantics |
 |--------------------------|-----------|----------|-------|-------------------|
-| IMAP Server | Inbound | IMAP protocol (port 993 implicit TLS); fetch emails by UID range; credentials from `ImapSettings` | `EmailProcessor` | Exception logged; polling continues; failed emails skipped if max retries exceeded |
+| IMAP Server | Inbound | IMAP protocol (port 993 implicit TLS); fetch emails by UID range; credentials from `ImapSettings` | `EmailProcessor`; retry policy in `EmailWorker` | I/O, socket, IMAP protocol, and disconnected-client failures during login or retrieval trigger reconnection after 5 seconds, without a retry limit or UID advancement. Other failures propagate. |
 | Personal Log Manager API | Outbound | HTTP POST to `/event` endpoint; HMAC-SHA256 authentication; JSON body with event type, timestamp, and data; timezone converted to `Europe/Bucharest` | `PersonalLogManagerService` | HTTP errors logged; event discarded (no retry or queue); polling continues |
 | Profi Bot Server API | Outbound | HTTP GET to `/Users/{username}/accounts`; HMAC-SHA256 authentication; JSON response with account objects (ID, balance, currency, isEnabled) | `ProfiAccountsService` | HTTP errors logged; timed log execution fails; `TimedLogWorker` continues to next scheduled log |
 | Email Platform Notifications | Inbound | Email protocol (IMAP); subject and body contain platform-specific signals (e.g., "Your AliExpress verification code", "connection on a new device") | Platform-specific processors | Non-matching emails ignored; unparseable data fields logged as warnings; event sent with partial or default data |
@@ -227,7 +229,7 @@ The principal dependency rules are:
 | Dependency | Responsibility | Integration Boundary | Architectural Consequence |
 |------------|----------------|----------------------|---------------------------|
 | `NuciLog` | Structured logging and operation tracking | Injected as `ILogger` singleton; all components log via `ILogger` methods | Consistent log format and operation correlation across all workers and processors |
-| `System.Net.Mail` (implicit IMAP) | IMAP protocol implementation | Encapsulated in `EmailProcessor`; called only from `EmailWorker` | Thread-safe IMAP credential management and UID checkpoint semantics delegated to BCL |
+| `MailKit` | IMAP protocol implementation | Encapsulated in `EmailProcessor`; called only from `EmailWorker` | The client is replaced on each login; `EmailWorker` owns connection retries and UID checkpoint semantics. |
 | `System.Net.Http` (implicit) | HTTP client for API calls | Implicit in `PersonalLogManagerService` and `ProfiAccountsService`; created per-service or pooled by .NET | Timeout and retry semantics delegated to HttpClient default behaviour; no explicit retry loop implemented |
 | `System.Text.Json` | JSON serialisation for checkpoint persistence and HTTP bodies | Used in `EmailWorker.LoadCheckpoint()` and implicitly in HTTP client serialisation | Ensures compact, idempotent checkpoint persistence; no custom serialisation needed |
 | `Microsoft.Extensions.DependencyInjection` | Service container and lifetime management | Instantiated in `Program.CreateIOC()`; all components registered as singletons | All workers and processors are singletons; no per-request scoping |
@@ -248,7 +250,7 @@ The service maintains a single persistent file, `imap-checkpoint.json`, in the a
 
 ## ✅ Testing and Verification
 
-The [PersonalDataLogger.UnitTests](PersonalDataLogger.UnitTests/) NUnit project verifies API clients, processor transformations, and timed-log scheduling and execution. Live integrations still require manual verification using non-production services and credentials.
+The [PersonalDataLogger.UnitTests](PersonalDataLogger.UnitTests/) NUnit project verifies API clients, processor transformations, timed-log scheduling and execution, and email-worker connection retries. [EmailWorkerTests.cs](PersonalDataLogger.UnitTests/Service/EmailWorkerTests.cs) verifies retry UID retention, initial and repeated connection failures, non-retryable failures, and repeated worker invocations without real delays. Live integrations still require manual verification using non-production services and credentials.
 
 Verification points of architectural significance:
 
@@ -256,7 +258,7 @@ Verification points of architectural significance:
 - **Platform-specific extraction**: Send test emails to the IMAP inbox matching each processor's signal (e.g., AliExpress verification code); verify that events are emitted with correct platform and data fields.
 - **Timezone conversion**: Verify that event timestamps are converted to `Europe/Bucharest` time in API requests.
 - **Timed log execution**: Advance the system clock to 06:30; verify that `ProfiBalanceTimedLog` executes and sends an event with the summed enabled-account balance.
-- **Error handling**: Disconnect IMAP server mid-polling; verify that exceptions are logged and the process terminates.
+- **Error handling**: Disconnect the IMAP server mid-polling; verify that connection failures are logged, the process remains active, and retrieval resumes from the same checkpoint after reconnection. Verify that authentication and other non-retryable failures still terminate the process.
 
 Execute the principal automated verification with:
 
@@ -278,7 +280,7 @@ dotnet test personal-data-logger.slnx
 
 ### Error Handling
 
-External client failures are logged at their owning boundary and rethrown. During scheduled execution, `TimedLogWorker` records a timed-log failure and continues its loop. There is no retry loop or fallback. Platform processors do not throw on unparseable email data; they emit partial events with default or warning-logged fields.
+External client failures are logged at their owning boundary and rethrown. `EmailWorker` retries I/O, socket, IMAP protocol, and disconnected-client exceptions only around IMAP login and retrieval. Each failure produces a warning and a five-second delay, followed by a fresh login and a retry with the same requested UID. The retry boundary excludes email dispatch and checkpoint writes. During scheduled execution, `TimedLogWorker` records a timed-log failure and continues its loop; it has no retry loop or fallback. Platform processors do not throw on unparseable email data; they emit partial events with default or warning-logged fields.
 
 ### Observability
 

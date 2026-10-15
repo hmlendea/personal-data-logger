@@ -9,21 +9,22 @@ Personal Data Logger is a .NET 10 background service that polls an IMAP inbox, p
 
 ## 📑 Table of Contents
 
-- [Capabilities](#-capabilities)
-- [Usage](#-usage)
-- [Known Limitations](#-known-limitations)
-- [System Requirements](#-system-requirements)
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [Project Structure](#-project-structure)
-- [Architecture](#-architecture)
-- [Development](#-development)
-- [Deployment](#-deployment)
-- [Contributing](#-contributing)
-- [Code of Conduct](#-code-of-conduct)
-- [Security](#-security)
-- [Project Engagement](#-project-engagement)
-- [License](#-license)
+- [Capabilities](#capabilities)
+- [Usage](#usage)
+- [Known Limitations](#known-limitations)
+- [System Requirements](#system-requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Project Structure](#project-structure)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
+- [Code of Conduct](#code-of-conduct)
+- [Security](#security)
+- [Privacy and Data](#privacy-and-data)
+- [Project Engagement](#project-engagement)
+- [License](#license)
 
 ## ✨ Capabilities
 
@@ -232,11 +233,11 @@ See the [Code of Conduct](./CODE_OF_CONDUCT.md) for the standards of conduct exp
 
 ## 🔒 Security
 
-For information on reporting security vulnerabilities, see [SECURITY.md](./SECURITY.md).
+Personal Data Logger handles sensitive configuration including API keys, HMAC secrets, and IMAP credentials. For information on reporting security vulnerabilities, see [SECURITY.md](./SECURITY.md).
 
 ## 🛡️ Privacy and Data
 
-For information on how this project handles personal data, see [PRIVACY.md](./PRIVACY.md).
+Personal Data Logger processes personal email data and configuration credentials. For the detailed description of how the application handles privacy and personal data, see [PRIVACY.md](./PRIVACY.md).
 
 ## 💝 Project Engagement
 
@@ -248,5 +249,5 @@ If you find this project useful, consider [funding it](https://hmlendea.go.ro/fu
 
 ## 📄 License
 
-This project is being distributed under the `GNU General Public License v3.0`.
-See [LICENSE](./LICENSE) for further information.
+This project is being distributed under the `GNU General Public License v3.0 or later`.
+See [LICENSE](./LICENSE) for additional information.

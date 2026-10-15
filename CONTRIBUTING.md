@@ -99,6 +99,10 @@ dotnet test PersonalDataLogger.IntegrationTests/PersonalDataLogger.IntegrationTe
 
 Report security vulnerabilities per the [Security Policy](SECURITY.md).
 
+## 📜 Code of Conduct
+
+All participants are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## 📄 License
 
 By contributing, you agree that your contributions will be licensed under the GNU General Public License v3.0.

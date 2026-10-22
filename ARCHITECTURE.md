@@ -122,6 +122,7 @@ The principal runtime sequence is:
 | `AliExpressProcessor` | Platform extraction: detect verification code emails, parse email address, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `GandiProcessor` | Platform extraction: detect new device connection, parse username and IP address via regex, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `GoogleProcessor` | Platform extraction: detect security alert emails, parse Gmail username via regex, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
+| `DiscordProcessor` | Platform extraction: detect new location login emails, parse IP address and location via regex, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `PayPalProcessor` | Platform extraction: detect new device connection (Romanian), parse email address via regex, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `ProfiProcessor` | Platform extraction: detect prize-winning emails, parse account ID and prize description via regex, emit prize event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `OpsGenieEmailProcessor` | Platform extraction: detect on-call rotation changes, emit shift beginning/ending events | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
@@ -176,6 +177,8 @@ graph TB
     TimedW["TimedLogWorker"]
     ProcA["AliExpressProcessor"]
     ProcG["GandiProcessor"]
+    ProcGo["GoogleProcessor"]
+    ProcD["DiscordProcessor"]
     ProcP["PayPalProcessor"]
     ProcPr["ProfiProcessor"]
     ProcO["OpsGenieProcessor"]
@@ -190,6 +193,7 @@ graph TB
     Program -->|creates| ProcA
     Program -->|creates| ProcG
     Program -->|creates| ProcGo
+    Program -->|creates| ProcD
     Program -->|creates| ProcP
     Program -->|creates| ProcPr
     Program -->|creates| ProcO
@@ -201,6 +205,7 @@ graph TB
     EmailW -->|depends| ProcA
     EmailW -->|depends| ProcG
     EmailW -->|depends| ProcGo
+    EmailW -->|depends| ProcD
     EmailW -->|depends| ProcP
     EmailW -->|depends| ProcPr
     EmailW -->|depends| ProcO
@@ -215,6 +220,7 @@ graph TB
     ProcA -->|depends| ClientPLM
     ProcG -->|depends| ClientPLM
     ProcGo -->|depends| ClientPLM
+    ProcD -->|depends| ClientPLM
     ProcP -->|depends| ClientPLM
     ProcPr -->|depends| ClientPLM
     ProcO -->|depends| ClientPLM

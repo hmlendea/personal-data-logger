@@ -87,6 +87,7 @@ namespace PersonalDataLogger
                 .AddSingleton(profiBotServerSettings)
                 .AddSingleton(loggerSettings)
                 .AddSingleton<IAliExpressProcessor, AliExpressProcessor>()
+                .AddSingleton<IDiscordProcessor, DiscordProcessor>()
                 .AddSingleton<IGandiProcessor, GandiProcessor>()
                 .AddSingleton<IGoogleProcessor, GoogleProcessor>()
                 .AddSingleton<IOpsGenieEmailProcessor, OpsGenieEmailProcessor>()

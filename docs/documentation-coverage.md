@@ -10,6 +10,7 @@ This is the traceability audit for the current repository. It records both direc
 | IMAP retrieval | `EmailWorker.WatchEmails` | `EmailProcessor.LogIn`, `GetAvailableEmails`, `LogOut` | `ImapSettings` | `Program.CreateIOC` | None direct | Documented; protocol gap |
 | AliExpress processing | Email sender route | `AliExpressProcessor.ProcessEmail` | `AvailableEmail`, `AliExpressSettings` | `Program.CreateIOC` | `AliExpressProcessorTests` | Covered by unit tests only |
 | Gandi processing | Email sender route | `GandiProcessor.ProcessEmail` | `AvailableEmail` | `Program.CreateIOC` | `GandiProcessorTests` | Covered by unit tests only |
+| Google processing | Email sender route | `GoogleProcessor.ProcessEmail` | `AvailableEmail` | `Program.CreateIOC` | `GoogleProcessorTests` | Covered by unit tests only |
 | PayPal processing | Email sender route | `PayPalProcessor.ProcessEmail` | `AvailableEmail` | `Program.CreateIOC` | `PayPalProcessorTests` | Covered by unit tests only |
 | Profi notification processing | Email sender route | `ProfiProcessor.ProcessEmail` | `AvailableEmail` | `Program.CreateIOC` | `ProfiProcessorTests` | Covered by unit tests only |
 | Opsgenie processing | Email sender route | `OpsGenieEmailProcessor.ProcessEmail` | `AvailableEmail`, `PersonalSettings` | `Program.CreateIOC` | `OpsGenieEmailProcessorTests` | Covered by unit tests only |

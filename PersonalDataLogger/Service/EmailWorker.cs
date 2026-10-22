@@ -17,6 +17,7 @@ namespace PersonalDataLogger.Service
     public class EmailWorker(
         IAliExpressProcessor aliExpressProcessor,
         IGandiProcessor gandiProcessor,
+        IGoogleProcessor googleProcessor,
         IOpsGenieEmailProcessor opsGenieEmailProcessor,
         IPayPalProcessor payPalProcessor,
         IProfiProcessor profiProcessor,
@@ -136,6 +137,11 @@ namespace PersonalDataLogger.Service
                              email.Sender.Contains("gandi_net"))
                     {
                         gandiProcessor.ProcessEmail(email);
+                    }
+                    else if (email.Sender.Contains("google.com") ||
+                             email.Sender.Contains("accounts.google.com"))
+                    {
+                        googleProcessor.ProcessEmail(email);
                     }
                     else if (email.Sender.Contains("opsgenie"))
                     {

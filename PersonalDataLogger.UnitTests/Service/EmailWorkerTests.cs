@@ -41,6 +41,7 @@ namespace PersonalDataLogger.UnitTests.Service
             emailWorker = new(
                 Mock.Of<IAliExpressProcessor>(),
                 Mock.Of<IGandiProcessor>(),
+                Mock.Of<IGoogleProcessor>(),
                 Mock.Of<IOpsGenieEmailProcessor>(),
                 Mock.Of<IPayPalProcessor>(),
                 Mock.Of<IProfiProcessor>(),

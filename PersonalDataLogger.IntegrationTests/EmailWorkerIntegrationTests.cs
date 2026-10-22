@@ -53,6 +53,7 @@ namespace PersonalDataLogger.IntegrationTests
                     mockPersonalLogManagerService.Object,
                     new AliExpressSettings { EmailAddress = "solaire@astora.com" }),
                 new GandiProcessor(mockPersonalLogManagerService.Object),
+                new GoogleProcessor(mockPersonalLogManagerService.Object),
                 new OpsGenieEmailProcessor(
                     mockPersonalLogManagerService.Object,
                     new PersonalSettings { EmployerName = "NuciSoft" }),
@@ -87,7 +88,8 @@ namespace PersonalDataLogger.IntegrationTests
                     BuildEmail(32, timestamp, "notifications@opsgenie.com", "Your on-call rotation is ending now", string.Empty),
                     BuildEmail(42, timestamp, "notify@profi_bot_server.com", "Profi Prize Won", "Account: prize (613)\nItem: 100 RON voucher"),
                     BuildEmail(48, timestamp, "security@gandi_net", "Connection on a new device", "username solaire. IP address: 203.0.113.8"),
-                    BuildEmail(64, timestamp, "security@paypal.com", "Conectare de pe un dispozitiv nou", "contul tău PayPal, solaire@astora.com:")
+                    BuildEmail(64, timestamp, "security@paypal.com", "Conectare de pe un dispozitiv nou", "contul tău PayPal, solaire@astora.com:"),
+                    BuildEmail(128, timestamp, "no-reply@accounts.google.com", "Security alert", "hori873hacks@gmail.com")
                 ]
             };
             mockEmailProcessor
@@ -105,6 +107,7 @@ namespace PersonalDataLogger.IntegrationTests
             VerifyDataLog("WorkOnCallShiftBeginning", null, 1);
             VerifyDataLog("BotPrizeWinning", "Profi", 1);
             VerifyDataLog("AccountLogin", "PayPal", 1);
+            VerifyDataLog("AccountLogin", "Google", 1);
             mockPersonalLogManagerService.Verify(
                 service => service.SendPersonalLogToManager(timestamp, "WorkOnCallShiftEnding"),
                 Times.Once);

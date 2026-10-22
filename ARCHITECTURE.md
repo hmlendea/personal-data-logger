@@ -74,7 +74,7 @@ The principal architecture boundaries are:
 - **Composition Root** ([Program.cs](PersonalDataLogger/Program.cs)): Initialises configuration, registers dependencies, and starts the continuous workers.
 - **Email Worker** (`Service/EmailWorker.cs`): Polls IMAP, maintains checkpoint state, and dispatches emails to platform-specific processors.
 - **Timed Log Worker** (`Service/TimedLogWorker.cs`): Schedules and executes registered timed logs (currently `ProfiBalanceTimedLog`).
-- **Processors** (`Service/Processors/`): Platform-specific email extraction and event transformation (AliExpress, Gandi, PayPal, Profi, Opsgenie).
+- **Processors** (`Service/Processors/`): Platform-specific email extraction and event transformation (AliExpress, Gandi, Google, PayPal, Profi, Opsgenie).
 - **Client Services** (`Client/`): External API integrations (Personal Log Manager, Profi Bot Server).
 
 ## 🔄 Runtime Flow
@@ -121,7 +121,7 @@ The principal runtime sequence is:
 | `EmailProcessor` | IMAP connectivity: login, UID validity check, fetch emails by UID range | `ImapSettings`, `ILogger` | Singleton, injected into `EmailWorker` |
 | `AliExpressProcessor` | Platform extraction: detect verification code emails, parse email address, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `GandiProcessor` | Platform extraction: detect new device connection, parse username and IP address via regex, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
-| `GoogleProcessor` | Platform extraction: detect security alert emails, parse Gmail username via regex, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
+| `GoogleProcessor` | Platform extraction: detect English (`security alert`) and Romanian (`alertă de securitate`) security-alert emails, parse Gmail username via regex, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `DiscordProcessor` | Platform extraction: detect new location login emails, parse IP address and location via regex, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `PayPalProcessor` | Platform extraction: detect new device connection (Romanian), parse email address via regex, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `ProfiProcessor` | Platform extraction: detect prize-winning emails, parse account ID and prize description via regex, emit prize event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
@@ -164,7 +164,7 @@ graph LR
 | IMAP Server | Inbound | IMAP protocol (port 993 implicit TLS); fetch emails by UID range; credentials from `ImapSettings` | `EmailProcessor`; retry policy in `EmailWorker` | I/O, socket, IMAP protocol, and disconnected-client failures during login or retrieval trigger reconnection after 5 seconds, without a retry limit or UID advancement. Other failures propagate. |
 | Personal Log Manager API | Outbound | HTTP POST to `/event` endpoint; HMAC-SHA256 authentication; JSON body with event type, timestamp, and data; timezone converted to `Europe/Bucharest` | `PersonalLogManagerService` | HTTP errors logged; event discarded (no retry or queue); polling continues |
 | Profi Bot Server API | Outbound | HTTP GET to `/Users/{username}/accounts`; HMAC-SHA256 authentication; JSON response with account objects (ID, balance, currency, isEnabled) | `ProfiAccountsService` | HTTP errors logged; timed log execution fails; `TimedLogWorker` continues to next scheduled log |
-| Email Platform Notifications | Inbound | Email protocol (IMAP); subject and body contain platform-specific signals (e.g., "Your AliExpress verification code", "connection on a new device") | Platform-specific processors | Non-matching emails ignored; unparseable data fields logged as warnings; event sent with partial or default data |
+| Email Platform Notifications | Inbound | Email protocol (IMAP); subject and body contain platform-specific signals (e.g., "Your AliExpress verification code", "security alert", or "alertă de securitate") | Platform-specific processors | Non-matching emails ignored; unparseable data fields logged as warnings; event sent with partial or default data |
 
 ## 🧭 Dependency Direction and Rules
 

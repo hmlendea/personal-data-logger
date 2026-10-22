@@ -164,6 +164,25 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
                 Times.Once);
         }
 
+        [Test]
+        public void GivenEmailWithRomanianSecurityAlertSubject_WhenProcessing_ThenPersonalLogManagerIsCalled()
+        {
+            AvailableEmail email = BuildAvailableEmail(
+                subject: "Alertă de securitate",
+                body: "melendea.horatiu@gmail.com");
+
+            processor.ProcessEmail(email);
+
+            mockPersonalLogManagerService.Verify(
+                s => s.SendPersonalLogToManager(
+                    email.Timestamp,
+                    "AccountLogin",
+                    It.Is<Dictionary<string, string>>(d =>
+                        d["platform"] == "Google" &&
+                        d["username"] == "melendea.horatiu")),
+                Times.Once);
+        }
+
         private static AvailableEmail BuildAvailableEmail(
             string subject,
             string body)

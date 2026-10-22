@@ -16,6 +16,7 @@ namespace PersonalDataLogger.Service
 {
     public class EmailWorker(
         IAliExpressProcessor aliExpressProcessor,
+        IDiscordProcessor discordProcessor,
         IGandiProcessor gandiProcessor,
         IGoogleProcessor googleProcessor,
         IOpsGenieEmailProcessor opsGenieEmailProcessor,
@@ -132,6 +133,10 @@ namespace PersonalDataLogger.Service
                     if (email.Sender.Contains("aliexpress"))
                     {
                         aliExpressProcessor.ProcessEmail(email);
+                    }
+                    else if (email.Sender.Contains("discord.com"))
+                    {
+                        discordProcessor.ProcessEmail(email);
                     }
                     else if (email.Sender.Contains("gandi.net") ||
                              email.Sender.Contains("gandi_net"))

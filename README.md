@@ -34,7 +34,7 @@ Personal Data Logger is a .NET 10 background service that polls an IMAP inbox, p
 - Keeps a persistent checkpoint based on IMAP UID to prevent duplicate processing
 - Applies maximum email age filtering
 - Retrieves Profi Bot Server account balances at configured local times
-- Processes email events from multiple platforms (AliExpress, Gandi, Google, PayPal, Profi)
+- Processes email events from multiple platforms (AliExpress, Discord, Gandi, Google, PayPal, Profi)
 - Detects and handles Opsgenie on-call rotation notifications
 - Converts timestamps to Romanian time (`Europe/Bucharest`) before sending to the API
 

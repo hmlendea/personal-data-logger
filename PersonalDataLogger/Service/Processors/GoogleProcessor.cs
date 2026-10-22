@@ -11,12 +11,13 @@ namespace PersonalDataLogger.Service.Processors
         : IGoogleProcessor
     {
         const string PlatformName = "Google";
+        const string EnglishSecurityAlertSubject = "security alert";
+        const string RomanianSecurityAlertSubject = "alertă de securitate";
 
         public void ProcessEmail(AvailableEmail email)
         {
-            if (email.Subject.Contains(
-                "security alert",
-                StringComparison.OrdinalIgnoreCase))
+            if (email.Subject.Contains(EnglishSecurityAlertSubject, StringComparison.OrdinalIgnoreCase) ||
+                email.Subject.Contains(RomanianSecurityAlertSubject, StringComparison.OrdinalIgnoreCase))
             {
                 Match usernameMatch = Regex.Match(
                     email.Body,

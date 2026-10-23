@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="PersonalDataLogger/PersonalDataLogger.csproj" />
+  <Project Path="PersonalDataLogger.ArchitectureTests/PersonalDataLogger.ArchitectureTests.csproj" />
   <Project Path="PersonalDataLogger.IntegrationTests/PersonalDataLogger.IntegrationTests.csproj" />
   <Project Path="PersonalDataLogger.UnitTests/PersonalDataLogger.UnitTests.csproj" />
 </Solution>

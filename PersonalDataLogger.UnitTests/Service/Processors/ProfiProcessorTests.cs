@@ -170,7 +170,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithCaseVariationInSubject_WhenProcessing_ThenPersonalLogManagerIsCalled()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "profi prize won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Account: User (1234)\nItem: Prize");
 
             processor.ProcessEmail(email);
@@ -187,7 +187,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithMultipleAccountIds_WhenProcessing_ThenFirstAccountIdIsExtracted()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "Profi Prize Won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Account: User (111) and Account: User (222)\nItem: Prize");
 
             processor.ProcessEmail(email);
@@ -205,7 +205,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithMultiplePrizes_WhenProcessing_ThenFirstPrizeIsExtracted()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "Profi Prize Won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Account: User (12345)\nItem: Prize One\nItem: Prize Two");
 
             processor.ProcessEmail(email);
@@ -223,7 +223,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithAccountIdWithLeadingZeros_WhenProcessing_ThenAccountIdIsExtracted()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "Profi Prize Won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Account: User (00123)\nItem: Prize");
 
             processor.ProcessEmail(email);
@@ -241,7 +241,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithPrizeWithSpecialCharacters_WhenProcessing_ThenPrizeIsExtracted()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "Profi Prize Won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Account: User (12345)\nItem: 50% Discount - Free Shipping & Gift Card");
 
             processor.ProcessEmail(email);
@@ -259,7 +259,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithPrizeWithLeadingAndTrailingWhitespace_WhenProcessing_ThenWhitespaceIsTrimmed()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "Profi Prize Won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Account: User (12345)\nItem:   Trimmed Prize   ");
 
             processor.ProcessEmail(email);
@@ -277,7 +277,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithExtraTextInSubject_WhenProcessing_ThenPersonalLogManagerIsCalled()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "ALERT: Profi Prize Won - Claim Now!",
+                subject: "ALERT: You have won a Profi prize! (Twix Baton Ciocolată Albă 46g) - Claim Now!",
                 body: "Account: User (12345)\nItem: Prize");
 
             processor.ProcessEmail(email);

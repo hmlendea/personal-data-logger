@@ -87,7 +87,7 @@ namespace PersonalDataLogger.IntegrationTests
                     BuildEmail(8, timestamp, "security@gandi.net", "Connection on a new device", "username solaire. IP address: 203.0.113.4"),
                     BuildEmail(16, timestamp, "notifications@opsgenie.com", "Your on-call rotation is starting now", string.Empty),
                     BuildEmail(32, timestamp, "notifications@opsgenie.com", "Your on-call rotation is ending now", string.Empty),
-                    BuildEmail(42, timestamp, "notify@profi_bot_server.com", "Profi Prize Won", "Account: prize (613)\nItem: 100 RON voucher"),
+                    BuildEmail(42, timestamp, "notify@profi_bot_server.com", "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)", "Account: prize (613)\nItem: 100 RON voucher"),
                     BuildEmail(48, timestamp, "security@gandi_net", "Connection on a new device", "username solaire. IP address: 203.0.113.8"),
                     BuildEmail(64, timestamp, "security@paypal.com", "Conectare de pe un dispozitiv nou", "contul tău PayPal, solaire@astora.com:"),
                     BuildEmail(128, timestamp, "no-reply@accounts.google.com", "Security alert", "hori873hacks@gmail.com"),

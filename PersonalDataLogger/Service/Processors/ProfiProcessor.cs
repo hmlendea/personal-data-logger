@@ -18,7 +18,7 @@ namespace PersonalDataLogger.Service.Processors
             @"(?:Item|Articol):\s*(?<prize>.+)",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        private static string EnglishPrizeSubject => "Profi Prize Won";
+        private static string EnglishPrizeSubject => "You have won a Profi prize!";
 
         private static string RomanianPrizeSubject => "Ai câștigat un premiu Profi!";
 
@@ -67,7 +67,9 @@ namespace PersonalDataLogger.Service.Processors
         }
 
         private static bool IsPrizeEmail(string subject)
-            => subject.Contains(EnglishPrizeSubject, StringComparison.OrdinalIgnoreCase)
-                || subject.Contains(RomanianPrizeSubject, StringComparison.OrdinalIgnoreCase);
+            => subject.IndexOf(EnglishPrizeSubject, StringComparison.OrdinalIgnoreCase) >= 0
+                || subject.IndexOf(RomanianPrizeSubject, StringComparison.OrdinalIgnoreCase) >= 0
+                || subject.Contains("won a Profi prize", StringComparison.OrdinalIgnoreCase)
+                || subject.Contains("câștigat un premiu Profi", StringComparison.OrdinalIgnoreCase);
     }
 }

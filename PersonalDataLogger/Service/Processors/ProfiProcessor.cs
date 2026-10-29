@@ -18,7 +18,7 @@ namespace PersonalDataLogger.Service.Processors
             @"(?:Item|Articol):\s*(?<prize>.+)",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        private static string EnglishPrizeSubject => "Profi Prize Won";
+        private static string EnglishPrizeSubject => "You have won a Profi prize!";
 
         private static string RomanianPrizeSubject => "Ai câștigat un premiu Profi!";
 

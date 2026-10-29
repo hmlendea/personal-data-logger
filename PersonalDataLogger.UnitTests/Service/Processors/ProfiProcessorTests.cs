@@ -27,7 +27,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithProfiPrizeWonSubject_WhenProcessing_ThenPersonalLogManagerIsCalled()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "Profi Prize Won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Account: User Account (12345)\nItem: 100 RON Voucher");
 
             processor.ProcessEmail(email);
@@ -63,7 +63,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithProfiPrizeWonAndValidAccountId_WhenProcessing_ThenAccountIdIsExtracted()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "Profi Prize Won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Account: User Account (12345)\nItem: 100 RON Voucher");
 
             processor.ProcessEmail(email);
@@ -81,7 +81,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithProfiPrizeWonAndValidPrize_WhenProcessing_ThenPrizeIsExtracted()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "Profi Prize Won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Account: User Account (12345)\nItem: 100 RON Voucher");
 
             processor.ProcessEmail(email);
@@ -99,7 +99,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithProfiPrizeWonAndNoAccountId_WhenProcessing_ThenAccountIdIsEmpty()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "Profi Prize Won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Item: 100 RON Voucher");
 
             processor.ProcessEmail(email);
@@ -117,7 +117,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithProfiPrizeWonAndNoPrize_WhenProcessing_ThenPrizeIsEmpty()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "Profi Prize Won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Account: User Account (12345)");
 
             processor.ProcessEmail(email);
@@ -135,7 +135,7 @@ namespace PersonalDataLogger.UnitTests.Service.Processors
         public void GivenEmailWithProfiPrizeWonSubject_WhenProcessing_ThenPlatformIsAlwaysProfi()
         {
             AvailableEmail email = BuildAvailableEmail(
-                subject: "Profi Prize Won",
+                subject: "You have won a Profi prize! (Twix Baton Ciocolată Albă 46g)",
                 body: "Account: User (9999)\nItem: Test Prize");
 
             processor.ProcessEmail(email);

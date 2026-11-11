@@ -34,6 +34,7 @@ Personal Data Logger is a .NET 10 background service that polls an IMAP inbox, p
 - Keeps a persistent checkpoint based on IMAP UID to prevent duplicate processing
 - Applies maximum email age filtering
 - Retrieves Profi Bot Server account balances at configured local times
+- Retrieves newly unlocked Steam achievements at configured local times and logs each one
 - Processes email events from multiple platforms (AliExpress, Discord, Gandi, Google, PayPal, Profi), including English and Romanian Google security-alert subjects
 - Detects and handles Opsgenie on-call rotation notifications
 - Converts timestamps to Romanian time (`Europe/Bucharest`) before sending to the API
@@ -48,6 +49,7 @@ dotnet run --project PersonalDataLogger/PersonalDataLogger.csproj
 
 - Transient IMAP connection failures are retried indefinitely at five-second intervals. Authentication, email processing, and checkpoint persistence failures are not retried and terminate the worker.
 - Events sent to the Personal Log Manager API are not queued locally or retried after an HTTP failure.
+- Steam achievement logging requires a Steam Web API key and depends on Steam Web API availability, rate limits, and profile privacy settings.
 
 ## 🖥️ System Requirements
 
@@ -84,6 +86,7 @@ Sensitive configuration must be supplied through environment-specific configurat
 - API keys and HMAC secrets for `personalLogManagerSettings`
 - IMAP server credentials
 - Profi Bot Server API keys and HMAC secrets
+- Steam Web API keys
 
 Configuration example:
 
@@ -118,6 +121,11 @@ Configuration example:
     "userApiKey": "<user-api-key>",
     "username": "hori"
   },
+  "steamSettings": {
+    "apiKey": "<steam-api-key>",
+    "username": "hori873",
+    "scheduledHours": "07:00"
+  },
   "nuciLoggerSettings": {
     "minimumLevel": "Debug",
     "logFilePath": "logfile.log",
@@ -127,6 +135,10 @@ Configuration example:
 ```
 
 `profiBotServerSettings.scheduledHours` accepts one or more comma-separated times in `HH:mm` format. Each configured time runs once per day in the server's local time zone.
+
+`steamSettings` enables Steam achievement logging when `apiKey` and `username` are set. `username` is the Steam custom profile name used both for resolving the account identifier and for the `username` field of each logged achievement. `scheduledHours` accepts one or more comma-separated times in `HH:mm` format and defaults to `07:00`.
+
+On each run, the latest logged `GameAchievementUnlock` entry for the Steam platform and configured username is retrieved from the Personal Log Manager. Only achievements unlocked after that date and time are sent as new log entries.
 
 ## 🗂️ Project Structure
 
@@ -203,6 +215,7 @@ This script downloads and executes an external release helper from `https://raw.
 | Package | Version | Scope | Purpose |
 |---------|---------|-------|---------|
 | NuciLog | Latest | Runtime | Structured logging and diagnostics |
+| NuciWeb.HTTP | 1.7.3 | Runtime | HTTP client creation with a user-agent for the Steam Web API |
 
 ## 🚢 Deployment
 

@@ -44,6 +44,7 @@ Each processor receives `AvailableEmail`, recognises platform-specific subject/b
 | Registration | [Program.cs](../PersonalDataLogger/Program.cs) | `IPersonalLogManagerService` and `INuciApiClient` singletons |
 | Configuration | [PersonalLogManagerSettings.cs](../PersonalDataLogger/Configuration/PersonalLogManagerSettings.cs), [appsettings.json](../PersonalDataLogger/appsettings.json) | Base URL, API key, client ID, HMAC key |
 | Callers | Platform processors and [ProfiBalanceTimedLog.cs](../PersonalDataLogger/Service/ProfiBalanceTimedLog.cs) | Event submission |
+| Latest-log lookup | [PersonalLogManagerService.cs](../PersonalDataLogger/Client/PersonalLogManagerService.cs) | `GetLatestLogTimestamp`; Steam achievement cutoff |
 | Tests | [PersonalLogManagerServiceTests.cs](../PersonalDataLogger.UnitTests/Client/PersonalLogManagerServiceTests.cs), `PersonalLogManagerServiceTests` | Authentication, payload, and timezone cases |
 | Integration/e2e | None | Live API boundary is not automated |
 
@@ -62,7 +63,23 @@ The client converts timestamps to `Europe/Bucharest`, sends the standard event r
 | Tests | [ProfiBalanceTimedLogTests.cs](../PersonalDataLogger.UnitTests/Service/ProfiBalanceTimedLogTests.cs), `ProfiBalanceTimedLogTests`; [ProfiAccountsServiceTests.cs](../PersonalDataLogger.UnitTests/Client/ProfiAccountsServiceTests.cs), `ProfiAccountsServiceTests` | Schedule, aggregation, HTTP and response branches |
 | Integration/e2e | None | Profi Bot Server boundary is not automated |
 
-The timed log executes at the next local 06:30, obtains accounts, sums enabled-account balances, formats a `BotsTotalBalanceMeasurement` event in invariant culture, and sends it through the common log client.
+The timed log executes at each configured local time, obtains accounts, sums enabled-account balances, formats a `BotsTotalBalanceMeasurement` event in invariant culture, and sends it through the common log client.
+
+## Steam Achievement Timed Log
+
+| Responsibility | Location | Symbol or detail |
+| --- | --- | --- |
+| Conditional entry point | [Program.cs](../PersonalDataLogger/Program.cs) | `CreateIOC` registers and `Main` starts timed logging when `SteamSettings.IsConfigured` |
+| Scheduler | [TimedLogWorker.cs](../PersonalDataLogger/Service/TimedLogWorker.cs), [ScheduledTimes.cs](../PersonalDataLogger/Service/ScheduledTimes.cs) | `WatchTimedLogs`, `WatchTimedLog`, `GetNextExecution` |
+| Principal implementation | [SteamAchievementsTimedLog.cs](../PersonalDataLogger/Service/SteamAchievementsTimedLog.cs) | `GetNextExecution`, `Execute` |
+| Steam client | [SteamService.cs](../PersonalDataLogger/Client/SteamService.cs) | `GetAchievementsUnlockedSince`, owned-game and achievement retrieval |
+| Latest logged achievement lookup | [PersonalLogManagerService.cs](../PersonalDataLogger/Client/PersonalLogManagerService.cs) | `GetLatestLogTimestamp`; `/PersonalLog` GET query |
+| Data models | [SteamGame.cs](../PersonalDataLogger/Client/SteamGame.cs), [SteamAchievement.cs](../PersonalDataLogger/Client/SteamAchievement.cs), [SteamAchievementUnlock.cs](../PersonalDataLogger/Client/SteamAchievementUnlock.cs), [GetPersonalLogsResponse.cs](../PersonalDataLogger/Client/GetPersonalLogsResponse.cs) | Steam Web API payloads and normalised unlock records |
+| Configuration | [SteamSettings.cs](../PersonalDataLogger/Configuration/SteamSettings.cs), [appsettings.json](../PersonalDataLogger/appsettings.json) | API key, Steam username, scheduled hours |
+| Tests | [SteamAchievementsTimedLogTests.cs](../PersonalDataLogger.UnitTests/Service/SteamAchievementsTimedLogTests.cs), [SteamServiceTests.cs](../PersonalDataLogger.UnitTests/Client/SteamServiceTests.cs) | Schedule, cutoff, filtering, payload, and logging coverage |
+| Integration/e2e | None | Steam Web API and Personal Log Manager boundaries are not automated |
+
+The timed log resolves the Steam account identifier from the configured username, lists owned games, and queries achievements for games played since the cutoff. It requests the latest logged `GameAchievementUnlock` entry for the Steam platform and username, uses its date and time as the cutoff (or no cutoff when none exists), and posts one `GameAchievementUnlock` event per achievement unlocked after that minute.
 
 ## Configuration, Logging, and Composition
 
@@ -87,13 +104,22 @@ The timed log executes at the next local 06:30, obtains accounts, sums enabled-a
 
 ### Daily Timed-Log Scheduling
 
-- **Purpose:** select the next local 06:30 execution.
-- **Inputs:** current `DateTimeOffset`.
+- **Purpose:** select the next execution time from the configured local schedule.
+- **Inputs:** current `DateTimeOffset`, comma-separated `HH:mm` values from the timed-log settings.
 - **Output:** a `DateTimeOffset` today or tomorrow with the local UTC offset.
-- **Procedure:** construct today at `RunTime`; add one day when the time has passed; apply the local offset.
-- **Invariant:** returned execution is strictly later than the supplied local time.
-- **Implementation:** [ProfiBalanceTimedLog.cs](../PersonalDataLogger/Service/ProfiBalanceTimedLog.cs), `GetNextExecution`; scheduling loop in [TimedLogWorker.cs](../PersonalDataLogger/Service/TimedLogWorker.cs), `WatchTimedLog`.
-- **Tests:** [ProfiBalanceTimedLogTests.cs](../PersonalDataLogger.UnitTests/Service/ProfiBalanceTimedLogTests.cs), `ProfiBalanceTimedLogTests`.
+- **Procedure:** parse and sort the configured times; select the first future time today; add one day when every time has passed; apply the local offset.
+- **Invariant:** the returned execution is strictly later than the supplied local time.
+- **Implementation:** [ScheduledTimes.cs](../PersonalDataLogger/Service/ScheduledTimes.cs), `GetNextExecution`; scheduling loop in [TimedLogWorker.cs](../PersonalDataLogger/Service/TimedLogWorker.cs), `WatchTimedLog`.
+- **Tests:** [ProfiBalanceTimedLogTests.cs](../PersonalDataLogger.UnitTests/Service/ProfiBalanceTimedLogTests.cs), [SteamAchievementsTimedLogTests.cs](../PersonalDataLogger.UnitTests/Service/SteamAchievementsTimedLogTests.cs).
+
+### Steam Achievement Selection
+
+- **Purpose:** log each Steam achievement only once, using the latest logged achievement as the cutoff.
+- **Inputs:** `SteamSettings` (`apiKey`, `username`), the latest `GameAchievementUnlock` log for the Steam platform and username, and Steam Web API responses.
+- **Procedure:** resolve the Steam account identifier from the username; list owned games including played free games; keep games whose last-played time is within one day of the cutoff; request per-game achievements; keep achievements with `achieved` set and an unlock minute later than the cutoff minute.
+- **Branches and edge cases:** no previous log means no cutoff and all unlocked achievements qualify; a same-minute unlock is treated as already logged; missing achievement display names fall back to the Steam API name; API failures propagate to `TimedLogWorker`, which records the failure and continues.
+- **Implementation:** [SteamAchievementsTimedLog.cs](../PersonalDataLogger/Service/SteamAchievementsTimedLog.cs), `Execute`; [SteamService.cs](../PersonalDataLogger/Client/SteamService.cs), `GetAchievementsUnlockedSince`.
+- **Tests:** [SteamAchievementsTimedLogTests.cs](../PersonalDataLogger.UnitTests/Service/SteamAchievementsTimedLogTests.cs), [SteamServiceTests.cs](../PersonalDataLogger.UnitTests/Client/SteamServiceTests.cs).
 
 ### Enabled-Account Balance Aggregation
 

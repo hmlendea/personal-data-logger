@@ -27,64 +27,7 @@ namespace PersonalDataLogger.Service
         private static string TemplateName => "BotsTotalBalanceMeasurement";
 
         public DateTimeOffset GetNextExecution(DateTimeOffset currentTime)
-        {
-            DateTime localCurrentTime = currentTime.LocalDateTime;
-            List<TimeSpan> scheduledHours = GetScheduledHours();
-            DateTime nextExecution = localCurrentTime.Date.Add(scheduledHours[0]);
-
-            foreach (TimeSpan scheduledHour in scheduledHours)
-            {
-                DateTime candidate = localCurrentTime.Date.Add(scheduledHour);
-
-                if (candidate > localCurrentTime)
-                {
-                    nextExecution = candidate;
-                    break;
-                }
-            }
-
-            if (nextExecution <= localCurrentTime)
-            {
-                nextExecution = nextExecution.AddDays(1);
-            }
-
-            TimeSpan localOffset = TimeZoneInfo.Local.GetUtcOffset(nextExecution);
-
-            return new DateTimeOffset(nextExecution, localOffset);
-        }
-
-        private List<TimeSpan> GetScheduledHours()
-        {
-            if (string.IsNullOrWhiteSpace(settings.ScheduledHours))
-            {
-                throw new FormatException(
-                    "The Profi scheduled hours configuration is empty. Use one or more times in the HH:mm format.");
-            }
-
-            string[] configuredTimes = settings.ScheduledHours.Split(',', StringSplitOptions.TrimEntries);
-            List<TimeSpan> scheduledHours = [];
-
-            foreach (string configuredTime in configuredTimes)
-            {
-                if (!TimeSpan.TryParseExact(
-                    configuredTime,
-                    ["h\\:mm", "hh\\:mm"],
-                    CultureInfo.InvariantCulture,
-                    out TimeSpan balanceTime) ||
-                    balanceTime < TimeSpan.Zero ||
-                    balanceTime >= TimeSpan.FromDays(1))
-                {
-                    throw new FormatException(
-                        $"The Profi balance time '{configuredTime}' is invalid. Use the HH:mm format.");
-                }
-
-                scheduledHours.Add(balanceTime);
-            }
-
-            scheduledHours.Sort();
-
-            return scheduledHours;
-        }
+            => new ScheduledTimes(settings.ScheduledHours).GetNextExecution(currentTime);
 
         public async Task Execute()
         {

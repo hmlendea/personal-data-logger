@@ -23,7 +23,7 @@ This document describes how Personal Data Logger at https://github.com/hmlendea/
 
 This document covers both the project maintainers (who do not operate an instance) and self-hosted instance operators (users who run the application). The instance operator controls the instance's configuration, local storage (including the checkpoint file), logs, backups, access controls, retention, and request handling. The application does not send any data to the project maintainers by default.
 
-The application sends data to the configured Personal Log Manager API and, if configured, to the Profi Bot Server for fetching account balances. The instance operator can disable these flows by not configuring the respective services or by setting the configuration to point to a local instance.
+The application sends data to the configured Personal Log Manager API and, if configured, to the Profi Bot Server for fetching account balances and to the Steam Web API for retrieving owned games and unlocked achievements. The instance operator can disable these flows by not configuring the respective services or by setting the configuration to point to a local instance.
 
 ## 📥 Data We Handle
 
@@ -31,6 +31,7 @@ The application sends data to the configured Personal Log Manager API and, if co
 - IMAP server credentials (server, port, username, password) and email content (subject, sender, timestamp, body) from the connected IMAP mailbox.
 - Personal Log Manager API credentials (base URL, API key, HMAC shared secret key, client ID).
 - Profi Bot Server credentials (if configured: base URL, account name, client ID, HMAC shared secret key, user API key, username) and scheduled hours for balance checks.
+- Steam Web API credentials (if configured: API key, Steam profile username) and scheduled hours for achievement checks.
 - AliExpress email address (for filtering).
 - Employer name (personal setting).
 
@@ -42,6 +43,7 @@ The application sends data to the configured Personal Log Manager API and, if co
 - The application receives email data from the IMAP server.
 - The application receives responses from the Personal Log Manager API when sending events.
 - If configured, the application receives account balance data from the Profi Bot Server.
+- If configured, the application receives owned-game and achievement data for the configured Steam profile from the Steam Web API, and previously logged achievement entries from the Personal Log Manager API.
 
 ## 🧭 Processing and Use
 
@@ -50,6 +52,7 @@ The application processes the data described above for these verified functions:
 - Processing emails from known senders (AliExpress, Gandi, Opsgenie, PayPal, Profi Bot Server) to extract transaction or event details — Email content
 - Sending processed events to a Personal Log Manager API — Extracted event details
 - Fetching account balances from a Profi Bot Server at scheduled times — None (the request does not contain personal data, but the response may contain account balances which are personal data)
+- Retrieving unlocked Steam achievements at scheduled times and logging each new one — Steam profile username (sent to the Steam Web API and the Personal Log Manager API), game names, achievement names, and unlock dates
 - Storing an IMAP checkpoint to track the last processed email — UID and UID validity (not personal data)
 
 ## 🗄️ Storage, Retention, and Deletion
@@ -65,6 +68,7 @@ No other personal data is stored by the application. Email content is processed 
 | IMAP Server | Receiving emails for processing | Email content (subject, sender, timestamp, body) | imapSettings in appsettings.json |
 | Personal Log Manager API | Sending processed events | Extracted event details (e.g., transaction amount, description, date) | personalLogManagerSettings in appsettings.json |
 | Profi Bot Server | Fetching account balances (if configured) | Account balance information (non-personal? but may be considered personal) | profiBotServerSettings in appsettings.json |
+| Steam Web API | Retrieving owned games and achievements (if configured) | Steam profile username and identifier, owned game names, achievement names, and unlock dates | steamSettings in appsettings.json |
 
 ## ⚙️ User Controls and Requests
 
@@ -74,7 +78,7 @@ The following documented controls or request procedures are available:
 
 ## 🌍 International Transfers
 
-The application may transfer data across national or regional borders depending on the location of the IMAP server, the Personal Log Manager API, and the Profi Bot Server (if configured). The instance operator controls these locations through the configuration and is responsible for ensuring compliance with applicable data transfer regulations.
+The application may transfer data across national or regional borders depending on the location of the IMAP server, the Personal Log Manager API, the Profi Bot Server, and the Steam Web API (if configured). The instance operator controls these locations through the configuration and is responsible for ensuring compliance with applicable data transfer regulations.
 
 ## 🛡️ Data Protection and Security
 

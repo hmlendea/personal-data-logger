@@ -19,6 +19,8 @@ This is the traceability audit for the current repository. It records both direc
 | Timed-log scheduling | `Program.Main` when Profi configured | `TimedLogWorker.WatchTimedLogs`, `WatchTimedLog` | `ITimedLog`, `ProfiBotServerSettings` | Conditional `CreateIOC` registration | No worker tests | Documented; orchestration gap |
 | Profi balance event | Timed-log scheduler | `ProfiBalanceTimedLog.GetNextExecution`, `Execute` | `ProfiAccount`, settings, event dictionary | Conditional `CreateIOC` registration | `ProfiBalanceTimedLogTests` | Unit covered |
 | Profi account retrieval and sum | `ProfiBalanceTimedLog.Execute` | `ProfiAccountsService.GetEnabledAccountsBalance` | Request/response/account DTOs | Conditional `CreateIOC` registration | `ProfiAccountsServiceTests`, `GetProfiAccountsRequestTests` | Unit covered; live boundary gap |
+| Steam achievement logging | `SteamAchievementsTimedLog.Execute` | `SteamService.GetAchievementsUnlockedSince`, `PersonalLogManagerService.GetLatestLogTimestamp` | Steam Web API DTOs, `SteamAchievementUnlock`, `SteamSettings` | Conditional `CreateIOC` registration | `SteamAchievementsTimedLogTests`, `SteamServiceTests` | Unit covered; live boundaries not automated |
+| Latest logged achievement lookup | `SteamAchievementsTimedLog.Execute` | `PersonalLogManagerService.GetLatestLogTimestamp` | `GetPersonalLogsRequest`, `GetPersonalLogsResponse` | Composition root | `SteamAchievementsTimedLogTests` | Request/response mapping uncovered |
 | Configuration binding | `Program.CreateIOC` | `ConfigurationBuilder`, `config.Bind` | `appsettings.json`, settings POCOs | Composition root | None | Documented; validation gap |
 | Logging and operations | All workers/clients | `MyOperation`, `MyLogInfoKey`, injected `ILogger` calls | `NuciLoggerSettings` | `Program.CreateIOC` | Indirect only | Documented; no direct tests |
 | CI and release | GitHub workflow/release script | `dotnet.yml`, `release.sh` | Project files and external release script | GitHub Actions | CI build/test | Documented |
@@ -29,6 +31,7 @@ This is the traceability audit for the current repository. It records both direc
 | --- | --- | --- | --- |
 | UID checkpoint recovery and routing | `EmailWorker.ProcessAvailableEmails`, `LoadCheckpoint`, `SaveCheckpoint` | None | Branches, persistence, and sender routing are untested as a process |
 | Next daily 06:30 execution | `ProfiBalanceTimedLog.GetNextExecution` | `ProfiBalanceTimedLogTests` | Time-zone/DST integration behaviour is not tested against a real clock |
+| Steam achievement cutoff and filtering | `SteamAchievementsTimedLog.Execute`, `SteamService.GetAchievementsUnlockedSince` | `SteamAchievementsTimedLogTests`, `SteamServiceTests` | No live Steam Web API contract test |
 | Enabled-account sum | `ProfiAccountsService.CalculateEnabledAccountsBalance` | `ProfiAccountsServiceTests` | No live response-contract test |
 | Platform parsing/template mapping | Each `*Processor.ProcessEmail` | Matching `*ProcessorTests` | No complete email-to-API integration test |
 

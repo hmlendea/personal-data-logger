@@ -27,5 +27,10 @@ namespace PersonalDataLogger.Client
             string timeZone,
             string template,
             Dictionary<string, string> data);
+
+        Task<DateTimeOffset?> GetLatestLogTimestamp(
+            string template,
+            string platform,
+            string username);
     }
 }

@@ -25,6 +25,8 @@ namespace PersonalDataLogger
 
         private static ProfiBotServerSettings profiBotServerSettings;
 
+        private static SteamSettings steamSettings;
+
         private static void Main(string[] args)
         {
             serviceProvider = CreateIOC();
@@ -38,7 +40,7 @@ namespace PersonalDataLogger
                 Task emailWorkerTask = Task.Run(emailWorker.WatchEmails);
                 List<Task> workerTasks = [emailWorkerTask];
 
-                if (profiBotServerSettings.IsConfigured)
+                if (profiBotServerSettings.IsConfigured || steamSettings.IsConfigured)
                 {
                     ITimedLogWorker timedLogWorker = serviceProvider.GetService<ITimedLogWorker>();
                     Task timedLogWorkerTask = Task.Run(timedLogWorker.WatchTimedLogs);
@@ -66,6 +68,7 @@ namespace PersonalDataLogger
             PersonalSettings personalSettings = new();
             AliExpressSettings aliExpressSettings = new();
             profiBotServerSettings = new();
+            steamSettings = new();
             NuciLoggerSettings loggerSettings = new();
 
             IConfiguration config = new ConfigurationBuilder()
@@ -77,6 +80,7 @@ namespace PersonalDataLogger
             config.Bind(nameof(PersonalSettings), personalSettings);
             config.Bind(nameof(AliExpressSettings), aliExpressSettings);
             config.Bind(nameof(ProfiBotServerSettings), profiBotServerSettings);
+            config.Bind(nameof(SteamSettings), steamSettings);
             config.Bind(nameof(NuciLoggerSettings), loggerSettings);
 
             IServiceCollection services = new ServiceCollection()
@@ -85,6 +89,7 @@ namespace PersonalDataLogger
                 .AddSingleton(personalSettings)
                 .AddSingleton(aliExpressSettings)
                 .AddSingleton(profiBotServerSettings)
+                .AddSingleton(steamSettings)
                 .AddSingleton(loggerSettings)
                 .AddSingleton<IAliExpressProcessor, AliExpressProcessor>()
                 .AddSingleton<IDiscordProcessor, DiscordProcessor>()
@@ -103,11 +108,23 @@ namespace PersonalDataLogger
             {
                 services
                     .AddSingleton<ITimedLog, ProfiBalanceTimedLog>()
-                    .AddSingleton<ITimedLogWorker, TimedLogWorker>()
                     .AddSingleton<IProfiAccountsService>(provider => new ProfiAccountsService(
                         profiBotServerSettings,
                         new NuciApiClient(profiBotServerSettings.BaseUrl),
                         provider.GetRequiredService<ILogger>()));
+            }
+
+            if (steamSettings.IsConfigured)
+            {
+                services
+                    .AddSingleton<ITimedLog, SteamAchievementsTimedLog>()
+                    .AddSingleton<ISteamService>(provider => new SteamService(
+                        steamSettings,
+                        provider.GetRequiredService<ILogger>()));
+            }
+            if (profiBotServerSettings.IsConfigured || steamSettings.IsConfigured)
+            {
+                services.AddSingleton<ITimedLogWorker, TimedLogWorker>();
             }
 
             return services.BuildServiceProvider();

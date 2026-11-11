@@ -11,13 +11,17 @@ namespace PersonalDataLogger.Logging
         }
 
         public static LogInfoKey AccountCount => new MyLogInfoKey(nameof(AccountCount));
+        public static LogInfoKey AchievementCount => new MyLogInfoKey(nameof(AchievementCount));
         public static LogInfoKey Amount => new MyLogInfoKey(nameof(Amount));
+        public static LogInfoKey AppIdentifier => new MyLogInfoKey(nameof(AppIdentifier));
         public static LogInfoKey Data => new MyLogInfoKey(nameof(Data));
         public static LogInfoKey Date => new MyLogInfoKey(nameof(Date));
         public static LogInfoKey EnabledAccountCount => new MyLogInfoKey(nameof(EnabledAccountCount));
+        public static LogInfoKey GameCount => new MyLogInfoKey(nameof(GameCount));
         public static LogInfoKey HttpMethod => new MyLogInfoKey(nameof(HttpMethod));
         public static LogInfoKey MaxAge => new MyLogInfoKey(nameof(MaxAge));
         public static LogInfoKey Password => new MyLogInfoKey(nameof(Password));
+        public static LogInfoKey Platform => new MyLogInfoKey(nameof(Platform));
         public static LogInfoKey Port => new MyLogInfoKey(nameof(Port));
         public static LogInfoKey ResponseCode => new MyLogInfoKey(nameof(ResponseCode));
         public static LogInfoKey Server => new MyLogInfoKey(nameof(Server));

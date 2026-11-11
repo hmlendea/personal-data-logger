@@ -227,5 +227,75 @@ namespace PersonalDataLogger.UnitTests.Client
                     It.IsAny<IEnumerable<LogInfo>>()),
                 Times.Once);
         }
+
+        [Test]
+        public async Task GivenLoggedAchievements_WhenGettingTheLatestLogTimestamp_ThenTheNewestEntryTimestampIsReturned()
+        {
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetPersonalLogsRequest, GetPersonalLogsResponse>(
+                    HttpMethod.Get,
+                    It.IsAny<GetPersonalLogsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    "/PersonalLog"))
+                .ReturnsAsync(new GetPersonalLogsResponse
+                {
+                    Logs =
+                    [
+                        "L000000001 2023-11-23: 12:10 RO: Am obtinut achievement-ul 'Super Soldier' in jocul eRepublik",
+                        "L000000002 2023-11-20: 09:00 RO: Am obtinut achievement-ul 'Tiny Life' in jocul Tiny Life"
+                    ]
+                });
+
+            DateTimeOffset? timestamp = await service.GetLatestLogTimestamp(
+                "GameAchievementUnlock",
+                "Steam",
+                "solaire_of_astora");
+
+            Assert.That(timestamp, Is.Not.Null);
+            Assert.That(timestamp!.Value.Date, Is.EqualTo(new DateTime(2023, 11, 23)));
+            Assert.That(timestamp.Value.Hour, Is.EqualTo(12));
+            Assert.That(timestamp.Value.Minute, Is.EqualTo(10));
+        }
+
+        [Test]
+        public async Task GivenNoLoggedAchievements_WhenGettingTheLatestLogTimestamp_ThenNoTimestampIsReturned()
+        {
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetPersonalLogsRequest, GetPersonalLogsResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<GetPersonalLogsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    It.IsAny<string>()))
+                .ReturnsAsync(new GetPersonalLogsResponse());
+
+            DateTimeOffset? timestamp = await service.GetLatestLogTimestamp(
+                "GameAchievementUnlock",
+                "Steam",
+                "solaire_of_astora");
+
+            Assert.That(timestamp, Is.Null);
+        }
+
+        [Test]
+        public void GivenAMalformedLogLine_WhenGettingTheLatestLogTimestamp_ThenAnExceptionIsThrown()
+        {
+            mockApiClient
+                .Setup(client => client.SendRequestAsync<GetPersonalLogsRequest, GetPersonalLogsResponse>(
+                    It.IsAny<HttpMethod>(),
+                    It.IsAny<GetPersonalLogsRequest>(),
+                    It.IsAny<NuciApiRequestAuthorisationInfo>(),
+                    It.IsAny<string>()))
+                .ReturnsAsync(new GetPersonalLogsResponse
+                {
+                    Logs = ["L000000001 no valid date here"]
+                });
+
+            Assert.That(
+                async () => await service.GetLatestLogTimestamp(
+                    "GameAchievementUnlock",
+                    "Steam",
+                    "solaire_of_astora"),
+                Throws.InstanceOf<HttpRequestException>());
+        }
     }
 }

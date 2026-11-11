@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using NuciAPI.Client;
@@ -22,8 +23,21 @@ namespace PersonalDataLogger.Client
     {
         private static string PersonalLogRejectionMessage =>
             "The Personal Log Manager rejected the personal log.";
-        private static string RomaniaTimeZoneId => "Europe/Bucharest";
-        private static string WindowsRomaniaTimeZoneId => "GTB Standard Time";
+        private static string InvalidLogsResponseMessage =>
+            "The Personal Log Manager returned an invalid logs response.";
+        private static string InvalidLogDateMessage =>
+            "The Personal Log Manager returned a log with an invalid date.";
+        private static string MissingLogsResponseMessage =>
+            "The Personal Log Manager did not return a logs response.";
+        private static string PersonalLogEndpoint => "/PersonalLog";
+        private static string RomanianLocalisation => "ro-RO";
+        private static string RomaniaTimeZoneCode => "RO";
+        private static string LogDateFormat => "yyyy-MM-dd";
+        private static string LogTimeFormat => "HH:mm";
+        private static int LatestLogSearchCount => 10000;
+        private static readonly Regex LogTimestampPattern = new(
+            @"(?<date>\d{4}-\d{2}-\d{2})\s*:?\s*(?<time>\d{2}:\d{2})?",
+            RegexOptions.Compiled);
 
         public PersonalLogManagerService(
             PersonalLogManagerSettings settings,
@@ -42,12 +56,12 @@ namespace PersonalDataLogger.Client
             string template,
             Dictionary<string, string> data)
         {
-            DateTimeOffset romaniaDateTime = ConvertToRomanianTime(timestamp);
+            DateTimeOffset romaniaDateTime = RomaniaTimeZone.ConvertToRomanianTime(timestamp);
 
             return SendPersonalLogToManager(
-                romaniaDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                romaniaDateTime.ToString("HH:mm", CultureInfo.InvariantCulture),
-                "RO",
+                romaniaDateTime.ToString(LogDateFormat, CultureInfo.InvariantCulture),
+                romaniaDateTime.ToString(LogTimeFormat, CultureInfo.InvariantCulture),
+                RomaniaTimeZoneCode,
                 template,
                 data);
         }
@@ -80,12 +94,7 @@ namespace PersonalDataLogger.Client
                 OperationStatus.Started,
                 logInfos);
 
-            NuciApiRequestAuthorisationInfo authorisationInfo = new()
-            {
-                BearerToken = settings.ApiKey,
-                ClientId = settings.ClientId,
-                HmacSharedSecretKey = settings.HmacSharedSecretKey
-            };
+            NuciApiRequestAuthorisationInfo authorisationInfo = GetAuthorisationInfo();
 
             NuciApiResponse response;
 
@@ -103,7 +112,7 @@ namespace PersonalDataLogger.Client
                             Data = data
                         },
                         authorisationInfo,
-                        "/PersonalLog");
+                        PersonalLogEndpoint);
 
                 logInfos = logInfos
                     .Append(new(MyLogInfoKey.ResponseCode, response.Code));
@@ -142,20 +151,129 @@ namespace PersonalDataLogger.Client
                 logInfos);
         }
 
-        private static DateTimeOffset ConvertToRomanianTime(DateTimeOffset dateTime)
+        public async Task<DateTimeOffset?> GetLatestLogTimestamp(
+            string template,
+            string platform,
+            string username)
         {
-            TimeZoneInfo romanianDateTime;
+            IEnumerable<LogInfo> logInfos =
+            [
+                new(MyLogInfoKey.Template, template),
+                new(MyLogInfoKey.Platform, platform),
+                new(MyLogInfoKey.Username, username)
+            ];
+
+            logger.Info(
+                MyOperation.GetLatestLogDate,
+                OperationStatus.Started,
+                logInfos);
+
+            NuciApiResponse response;
 
             try
             {
-                romanianDateTime = TimeZoneInfo.FindSystemTimeZoneById(RomaniaTimeZoneId);
+                response =
+                    await apiClient.SendRequestAsync<GetPersonalLogsRequest, GetPersonalLogsResponse>(
+                        HttpMethod.Get,
+                        new GetPersonalLogsRequest
+                        {
+                            Template = template,
+                            Localisation = RomanianLocalisation,
+                            Count = LatestLogSearchCount,
+                            Platform = platform,
+                            Username = username
+                        },
+                        GetAuthorisationInfo(),
+                        PersonalLogEndpoint);
             }
-            catch (TimeZoneNotFoundException)
+            catch (Exception exception)
             {
-                romanianDateTime = TimeZoneInfo.FindSystemTimeZoneById(WindowsRomaniaTimeZoneId);
+                string errorMessage = "Error while retrieving the latest personal log date.";
+
+                logger.Error(
+                    MyOperation.GetLatestLogDate,
+                    OperationStatus.Failure,
+                    errorMessage,
+                    exception,
+                    logInfos);
+
+                throw new HttpRequestException(errorMessage, exception);
             }
 
-            return TimeZoneInfo.ConvertTime(dateTime, romanianDateTime);
+            DateTimeOffset? latestLogTimestamp = GetLatestLogTimestamp(response);
+
+            if (latestLogTimestamp is not null)
+            {
+                logInfos = logInfos.Append(new(MyLogInfoKey.Date, latestLogTimestamp));
+            }
+
+            logger.Info(
+                MyOperation.GetLatestLogDate,
+                OperationStatus.Success,
+                logInfos);
+
+            return latestLogTimestamp;
+        }
+
+        private NuciApiRequestAuthorisationInfo GetAuthorisationInfo()
+            => new()
+            {
+                BearerToken = settings.ApiKey,
+                ClientId = settings.ClientId,
+                HmacSharedSecretKey = settings.HmacSharedSecretKey
+            };
+
+        private static DateTimeOffset? GetLatestLogTimestamp(NuciApiResponse response)
+        {
+            if (response is null)
+            {
+                throw new HttpRequestException(MissingLogsResponseMessage);
+            }
+
+            if (!response.IsSuccessful)
+            {
+                throw new HttpRequestException(response.Message);
+            }
+
+            if (response is not GetPersonalLogsResponse logsResponse)
+            {
+                throw new HttpRequestException(InvalidLogsResponseMessage);
+            }
+
+            string latestLog = logsResponse.Logs?.FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(latestLog))
+            {
+                return null;
+            }
+
+            Match match = LogTimestampPattern.Match(latestLog);
+
+            if (!match.Success ||
+                !DateOnly.TryParseExact(
+                    match.Groups["date"].Value,
+                    LogDateFormat,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out DateOnly logDate))
+            {
+                throw new HttpRequestException(InvalidLogDateMessage);
+            }
+
+            TimeOnly? logTime = null;
+
+            if (match.Groups["time"].Success &&
+                TimeOnly.TryParseExact(
+                    match.Groups["time"].Value,
+                    LogTimeFormat,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out TimeOnly parsedTime))
+            {
+                logTime = parsedTime;
+            }
+
+            return RomaniaTimeZone.GetRomanianTimestamp(logDate, logTime);
         }
     }
 }

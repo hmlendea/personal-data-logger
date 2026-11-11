@@ -25,7 +25,7 @@ This architecture document describes the runtime structure, component responsibi
 
 ## 🌐 System Context
 
-Personal Data Logger operates at the boundary between an IMAP mailbox and a Personal Log Manager API. The service receives email notifications from multiple external platforms (AliExpress, Gandi, PayPal, Profi, Opsgenie) and transforms them into standardised event records. A secondary flow executes scheduled timed logs (e.g., Profi Bot account balance collection) on a daily schedule. All processed events are transmitted to the Personal Log Manager API with timestamps converted to Romanian time.
+Personal Data Logger operates at the boundary between an IMAP mailbox and a Personal Log Manager API. The service receives email notifications from multiple external platforms (AliExpress, Gandi, PayPal, Profi, Opsgenie) and transforms them into standardised event records. A secondary flow executes scheduled timed logs (Profi Bot account balance collection and Steam achievement collection) on a daily schedule. All processed events are transmitted to the Personal Log Manager API with timestamps converted to Romanian time.
 
 ```mermaid
 graph TB
@@ -33,18 +33,22 @@ graph TB
     PDL["Personal Data Logger<br/>(This Service)"]
     PLMAPI["Personal Log Manager API<br/>(Event Sink)"]
     ProfiAPI["Profi Bot Server API<br/>(Account Data)"]
+    SteamAPI["Steam Web API<br/>(Achievement Data)"]
 
     IMAP -->|Email Events| PDL
     PDL -->|Processed Events| PLMAPI
     PDL -->|Account Queries| ProfiAPI
     ProfiAPI -->|Account Data| PDL
+    PDL -->|Achievement Queries| SteamAPI
+    SteamAPI -->|Achievement Data| PDL
 ```
 
 The principal external boundaries are:
 
 - **IMAP Server:** Inbound email notifications from AliExpress, Gandi, PayPal, Profi, and Opsgenie. The service polls continuously and maintains a checkpoint to prevent duplicate processing.
-- **Personal Log Manager API:** Outbound HTTP API for submitting processed events with HMAC authentication and timezone conversion.
+- **Personal Log Manager API:** Outbound HTTP API for submitting processed events and querying the latest logged Steam achievement with HMAC authentication and timezone conversion.
 - **Profi Bot Server API:** Outbound HTTP API for retrieving authenticated account data (balances, enabled status) during scheduled timed logs.
+- **Steam Web API:** Outbound HTTP API for resolving the configured Steam profile, listing owned games, and retrieving achievement unlocks during scheduled timed logs.
 
 ## 🏗️ Architectural Style
 
@@ -57,25 +61,28 @@ graph LR
     EmailW["EmailWorker<br/>(Polling Loop)"]
     TimedW["TimedLogWorker<br/>(Scheduler)"]
     ProfiLog["ProfiBalanceTimedLog<br/>(Scheduled)"]
+    SteamLog["SteamAchievementsTimedLog<br/>(Scheduled)"]
     Logger["Logger<br/>(NuciLog)"]
 
     Config -->|Binds| IOC
     IOC -->|Creates| EmailW
     IOC -->|Creates| TimedW
     IOC -->|Creates| ProfiLog
+    IOC -->|Creates| SteamLog
     IOC -->|Creates| Logger
     EmailW -.->|Logs| Logger
     TimedW -.->|Logs| Logger
     ProfiLog -.->|Logs| Logger
+    SteamLog -.->|Logs| Logger
 ```
 
 The principal architecture boundaries are:
 
 - **Composition Root** ([Program.cs](PersonalDataLogger/Program.cs)): Initialises configuration, registers dependencies, and starts the continuous workers.
 - **Email Worker** (`Service/EmailWorker.cs`): Polls IMAP, maintains checkpoint state, and dispatches emails to platform-specific processors.
-- **Timed Log Worker** (`Service/TimedLogWorker.cs`): Schedules and executes registered timed logs (currently `ProfiBalanceTimedLog`).
+- **Timed Log Worker** (`Service/TimedLogWorker.cs`): Schedules and executes registered timed logs (`ProfiBalanceTimedLog`, `SteamAchievementsTimedLog`), using shared schedule parsing from `ScheduledTimes`.
 - **Processors** (`Service/Processors/`): Platform-specific email extraction and event transformation (AliExpress, Gandi, Google, PayPal, Profi, Opsgenie).
-- **Client Services** (`Client/`): External API integrations (Personal Log Manager, Profi Bot Server).
+- **Client Services** (`Client/`): External API integrations (Personal Log Manager, Profi Bot Server, Steam Web API).
 
 ## 🔄 Runtime Flow
 
@@ -100,15 +107,21 @@ graph TD
     ProfiAPI -->|Sum Balances| SendBalance["Send Balance Event<br/>(HMAC Auth)"]
     SendBalance --> Wait
 
+    Wait -->|Configured daily times| SteamLog["SteamAchievementsTimedLog.Execute"]
+    SteamLog -->|Query latest log| PLMLogs["PersonalLogManagerService.GetLatestLogTimestamp<br/>(HMAC Auth)"]
+    PLMLogs -->|Fetch| SteamAPI["SteamService.GetAchievementsUnlockedSince<br/>(API Key)"]
+    SteamAPI -->|Per Achievement| SendAchievement["Send Achievement Event<br/>(HMAC Auth)"]
+    SendAchievement --> Wait
+
     Err["Unhandled Exception"] -->|Catch| Shutdown["Log Shutdown<br/>Exit Process"]
 ```
 
 The principal runtime sequence is:
 
 1. **Application Start**: The entry point creates the dependency injection service provider.
-2. **Worker Startup**: Two independent `Task.Run()` calls start `EmailWorker.WatchEmails()` and, when the Profi integration is configured, `TimedLogWorker.WatchTimedLogs()`. The main thread waits for the first worker to complete or throw.
+2. **Worker Startup**: Two independent `Task.Run()` calls start `EmailWorker.WatchEmails()` and, when the Profi or Steam integration is configured, `TimedLogWorker.WatchTimedLogs()`. The main thread waits for the first worker to complete or throw.
 3. **Email Polling Loop**: `EmailWorker` loads the checkpoint (UID validity and last processed UID) at startup and polls IMAP every 5 seconds. Each iteration retrieves emails newer than the checkpoint, routes each email to a platform-specific processor, and saves the checkpoint after successful processing.
-4. **Scheduled Execution Loop**: `TimedLogWorker` iterates through registered `ITimedLog` implementations, calculates the next execution time for each, sleeps until that time, and executes the log (currently only `ProfiBalanceTimedLog`, using the comma-separated `profiBotServerSettings.scheduledHours` values in local time).
+4. **Scheduled Execution Loop**: `TimedLogWorker` iterates through registered `ITimedLog` implementations, calculates the next execution time for each, sleeps until that time, and executes the log using the comma-separated `scheduledHours` values of the owning settings in local time. `ProfiBalanceTimedLog` fetches and sums enabled-account balances. `SteamAchievementsTimedLog` queries the latest logged Steam achievement, retrieves later unlocks from the Steam Web API, and sends one event per achievement.
 5. **Error Handling**: IMAP connection failures during login or retrieval are logged and retried after 5 seconds, using a fresh client and the same requested UID. Authentication, command, processing, and checkpoint-write failures are not retried; unhandled exceptions reach the composition root, are logged as fatal, and terminate the process.
 
 ## 🧩 Components
@@ -118,6 +131,7 @@ The principal runtime sequence is:
 | `EmailWorker` | Polling loop: IMAP login, checkpoint load/save, email retrieval, platform routing, API dispatch | `IEmailProcessor`, five `I*Processor` implementations, `ImapSettings`, `ILogger` | Singleton, retrieved in `Main()` |
 | `TimedLogWorker` | Scheduler: iterate registered `ITimedLog` implementations, calculate next execution, execute at scheduled time | `IEnumerable<ITimedLog>`, `ILogger` | Singleton, retrieved in `Main()` |
 | `ProfiBalanceTimedLog` | Configured daily schedule: retrieve Profi accounts, sum balances for enabled accounts, send as timed log event | `IProfiAccountsService`, `IPersonalLogManagerService`, `ProfiBotServerSettings` | Singleton, registered in `ServiceCollection` |
+| `SteamAchievementsTimedLog` | Configured daily schedule: resolve the latest logged Steam achievement date, retrieve later unlocks, send one timed log event per achievement | `ISteamService`, `IPersonalLogManagerService`, `SteamSettings` | Singleton, registered in `ServiceCollection` |
 | `EmailProcessor` | IMAP connectivity: login, UID validity check, fetch emails by UID range | `ImapSettings`, `ILogger` | Singleton, injected into `EmailWorker` |
 | `AliExpressProcessor` | Platform extraction: detect verification code emails, parse email address, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `GandiProcessor` | Platform extraction: detect new device connection, parse username and IP address via regex, emit account login event | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
@@ -128,6 +142,7 @@ The principal runtime sequence is:
 | `OpsGenieEmailProcessor` | Platform extraction: detect on-call rotation changes, emit shift beginning/ending events | `IPersonalLogManagerService` | Singleton, injected into `EmailWorker` |
 | `PersonalLogManagerService` | API client: format events, convert timezone to `Europe/Bucharest`, send HTTP POST with HMAC authentication | `PersonalLogManagerSettings`, HTTP client (implicit) | Singleton, injected into processors and timed logs |
 | `ProfiAccountsService` | API client: authenticated HTTP GET to retrieve account list from Profi Bot Server | `ProfiBotServerSettings`, HTTP client (implicit) | Singleton, injected into `ProfiBalanceTimedLog` |
+| `SteamService` | API client: resolve the Steam account identifier, list owned games, and list per-game achievement unlocks through the Steam Web API | `SteamSettings`, `HttpClient` | Singleton, injected into `SteamAchievementsTimedLog` |
 
 ## 💾 Data Architecture
 
@@ -156,6 +171,7 @@ graph LR
 | `AvailableEmail` (Subject, Body, Timestamp, etc.) | `EmailWorker` (transient) | In-memory POCO; fetched from IMAP and immediately routed to processors; no persistence | Single-use lifetime within polling iteration; not retained after routing to processor |
 | Standardised Event (EventType, Timestamp, Data Dictionary) | Processor-specific | JSON in HTTP POST body; converted to Romanian time (`Europe/Bucharest`) by `PersonalLogManagerService` before transmission | Sent immediately to API; no local persistence; successful POST response confirms receipt |
 | Account Balances (Account ID, Balance, Currency, IsEnabled) | `ProfiBalanceTimedLog` (transient) | Retrieved from Profi Bot Server API on schedule; aggregated in memory; no persistence | Summed for enabled accounts; sent immediately as an event; no retention |
+| Steam Achievement Unlocks (Achievement Name, Game Name, Unlock Time) | `SteamAchievementsTimedLog` (transient) | Retrieved from the Steam Web API on schedule; the *latest logged achievement timestamp* comes from the Personal Log Manager; no local persistence | Each unlock is converted to a `GameAchievementUnlock` event in Romanian time and sent immediately |
 
 ## 🔌 Interfaces and Integrations
 
@@ -164,6 +180,8 @@ graph LR
 | IMAP Server | Inbound | IMAP protocol (port 993 implicit TLS); fetch emails by UID range; credentials from `ImapSettings` | `EmailProcessor`; retry policy in `EmailWorker` | I/O, socket, IMAP protocol, and disconnected-client failures during login or retrieval trigger reconnection after 5 seconds, without a retry limit or UID advancement. Other failures propagate. |
 | Personal Log Manager API | Outbound | HTTP POST to `/event` endpoint; HMAC-SHA256 authentication; JSON body with event type, timestamp, and data; timezone converted to `Europe/Bucharest` | `PersonalLogManagerService` | HTTP errors logged; event discarded (no retry or queue); polling continues |
 | Profi Bot Server API | Outbound | HTTP GET to `/Users/{username}/accounts`; HMAC-SHA256 authentication; JSON response with account objects (ID, balance, currency, isEnabled) | `ProfiAccountsService` | HTTP errors logged; timed log execution fails; `TimedLogWorker` continues to next scheduled log |
+| Personal Log Manager logs query | Outbound | HTTP GET to `/PersonalLog` with `template`, `localisation`, `count`, `data.platform`, and `data.username` query parameters; HMAC-SHA256 authentication; returns id-prefixed log lines | `PersonalLogManagerService.GetLatestLogTimestamp` | HTTP errors logged; Steam timed log execution fails; `TimedLogWorker` continues to next scheduled log |
+| Steam Web API | Outbound | HTTP GET to `ISteamUser/ResolveVanityURL`, `IPlayerService/GetOwnedGames`, and `ISteamUserStats/GetPlayerAchievements`; API key authentication | `SteamService` | HTTP errors logged; timed log execution fails; no retry or queue |
 | Email Platform Notifications | Inbound | Email protocol (IMAP); subject and body contain platform-specific signals (e.g., "Your AliExpress verification code", "security alert", or "alertă de securitate") | Platform-specific processors | Non-matching emails ignored; unparseable data fields logged as warnings; event sent with partial or default data |
 
 ## 🧭 Dependency Direction and Rules
@@ -184,6 +202,8 @@ graph TB
     ProcO["OpsGenieProcessor"]
     ClientPLM["PersonalLogManagerService"]
     ClientProfi["ProfiAccountsService"]
+    ClientSteam["SteamService"]
+    SteamLog["SteamAchievementsTimedLog"]
     EmailProc["EmailProcessor"]
     Config["Configuration"]
     Logger["ILogger"]
@@ -199,6 +219,7 @@ graph TB
     Program -->|creates| ProcO
     Program -->|creates| ClientPLM
     Program -->|creates| ClientProfi
+    Program -->|creates| ClientSteam
     Program -->|creates| EmailProc
 
     EmailW -->|depends| EmailProc
@@ -214,8 +235,11 @@ graph TB
 
     TimedW -->|depends| Logger
     TimedW -->|schedules| ProfiLog
+    TimedW -->|schedules| SteamLog
     ProfiLog -->|depends| ClientPLM
     ProfiLog -->|depends| ClientProfi
+    SteamLog -->|depends| ClientPLM
+    SteamLog -->|depends| ClientSteam
 
     ProcA -->|depends| ClientPLM
     ProcG -->|depends| ClientPLM
@@ -227,6 +251,7 @@ graph TB
 
     ClientPLM -->|depends| Config
     ClientProfi -->|depends| Config
+    ClientSteam -->|depends| Config
 ```
 
 The principal dependency rules are:
@@ -241,6 +266,7 @@ The principal dependency rules are:
 | `NuciLog` | Structured logging and operation tracking | Injected as `ILogger` singleton; all components log via `ILogger` methods | Consistent log format and operation correlation across all workers and processors |
 | `MailKit` | IMAP protocol implementation | Encapsulated in `EmailProcessor`; called only from `EmailWorker` | The client is replaced on each login; `EmailWorker` owns connection retries and UID checkpoint semantics. |
 | `System.Net.Http` (implicit) | HTTP client for API calls | Implicit in `PersonalLogManagerService` and `ProfiAccountsService`; created per-service or pooled by .NET | Timeout and retry semantics delegated to HttpClient default behaviour; no explicit retry loop implemented |
+| `NuciWeb.HTTP` | HTTP client factory with a user-agent header | Used by `SteamService` to create its `HttpClient` | Centralises user-agent handling for non-NuciAPI integrations
 | `System.Text.Json` | JSON serialisation for checkpoint persistence and HTTP bodies | Used in `EmailWorker.LoadCheckpoint()` and implicitly in HTTP client serialisation | Ensures compact, idempotent checkpoint persistence; no custom serialisation needed |
 | `Microsoft.Extensions.DependencyInjection` | Service container and lifetime management | Instantiated in `Program.CreateIOC()`; all components registered as singletons | All workers and processors are singletons; no per-request scoping |
 
@@ -267,7 +293,8 @@ Verification points of architectural significance:
 - **Checkpoint persistence**: Restart the service mid-polling; verify that `imap-checkpoint.json` is loaded and no emails are reprocessed.
 - **Platform-specific extraction**: Send test emails to the IMAP inbox matching each processor's signal (e.g., AliExpress verification code); verify that events are emitted with correct platform and data fields.
 - **Timezone conversion**: Verify that event timestamps are converted to `Europe/Bucharest` time in API requests.
-- **Timed log execution**: Advance the system clock to 06:30; verify that `ProfiBalanceTimedLog` executes and sends an event with the summed enabled-account balance.
+- **Timed log execution**: Advance the system clock to a configured time; verify that `ProfiBalanceTimedLog` executes and sends an event with the summed enabled-account balance.
+- **Steam achievement logging**: Configure `steamSettings`, run the timed log twice, and verify that the first run logs unlocked achievements and the second run logs only achievements unlocked after the newest logged one.
 - **Error handling**: Disconnect the IMAP server mid-polling; verify that connection failures are logged, the process remains active, and retrieval resumes from the same checkpoint after reconnection. Verify that authentication and other non-retryable failures still terminate the process.
 
 Execute the principal automated verification with:
@@ -283,7 +310,7 @@ dotnet test personal-data-logger.slnx
 - **Fixed checkpoint file location**: The checkpoint file is always stored at `${AppContext.BaseDirectory}/imap-checkpoint.json`. No configuration option to specify a custom path; this may cause issues if the application runs from a read-only directory.
 - **UID validity assumption**: The checkpoint assumes IMAP UID validity never changes during the service lifetime. A mailbox reset (e.g., mailbox recreated) will silently reset the checkpoint, but an incorrect UID validity could cause reprocessing or data loss.
 - **Romanian timezone hardcoded**: All timestamps sent to the Personal Log Manager API are converted to `Europe/Bucharest` time. No configuration option to specify an alternative timezone.
-- **Single timed log**: Only `ProfiBalanceTimedLog` is registered by default. Registering additional `ITimedLog` implementations requires code changes in `Program.CreateIOC()`.
+- **Opt-in timed logs**: `ProfiBalanceTimedLog` and `SteamAchievementsTimedLog` are registered only when their settings are fully resolved; unresolved `[[...]]` placeholders disable them. Adding another `ITimedLog` implementation requires a registration change in `Program.CreateIOC()`.
 - **No graceful shutdown**: The service terminates immediately on the first worker failure or unhandled exception. No SIGTERM handler, no graceful drain period, no cleanup of IMAP connection.
 
 ## 🧵 Cross-Cutting Concerns
@@ -303,10 +330,12 @@ The service logs to NuciLog with lifecycle operations and the operation keys def
 - `ExecuteTimedLog`: Timed log execution
 - `GetProfiAccounts`: Profi Bot Server request and response validation
 - `CalculateProfiAccountsBalance`: Enabled-account filtering and balance aggregation
+- `GetSteamAchievements`: Steam Web API identifier, owned-game, and achievement retrieval
+- `GetLatestLogDate`: Personal Log Manager latest-log query used for the Steam achievement cutoff
 - `StoreLog`: Personal Log Manager request and response
 - `Unknown`: Catch-all for unclassified operations
 
-The Profi balance path records the HTTP method, response codes, total and enabled account counts, and aggregate amount. It does not record credentials, the Profi username, request endpoint, or individual account balances. No structured tracing or spans are implemented; correlation is limited to operation keys. The log destination is configured in `appsettings.json`.
+The Profi balance path records the HTTP method, response codes, total and enabled account counts, and aggregate amount. It does not record credentials, the Profi username, request endpoint, or individual account balances. The Steam path records the username, cutoff date, game count, and achievement count. No structured tracing or spans are implemented; correlation is limited to operation keys. The log destination is configured in `appsettings.json`.
 
 ### Configuration
 
@@ -324,10 +353,14 @@ Two independent worker threads (`EmailWorker` and `TimedLogWorker`) run concurre
 | Email polling and checkpoint state | [Service/EmailWorker.cs](PersonalDataLogger/Service/EmailWorker.cs) |
 | Scheduled log execution | [Service/TimedLogWorker.cs](PersonalDataLogger/Service/TimedLogWorker.cs) |
 | Profi balance timed log | [Service/ProfiBalanceTimedLog.cs](PersonalDataLogger/Service/ProfiBalanceTimedLog.cs) |
+| Shared timed-log schedule parsing | [Service/ScheduledTimes.cs](PersonalDataLogger/Service/ScheduledTimes.cs) |
+| Steam achievement timed log | [Service/SteamAchievementsTimedLog.cs](PersonalDataLogger/Service/SteamAchievementsTimedLog.cs) |
 | IMAP connectivity | [Service/Processors/EmailProcessor.cs](PersonalDataLogger/Service/Processors/EmailProcessor.cs) |
 | Platform-specific processors | [Service/Processors/](PersonalDataLogger/Service/Processors/) |
 | Personal Log Manager API client | [Client/PersonalLogManagerService.cs](PersonalDataLogger/Client/PersonalLogManagerService.cs) |
 | Profi Bot Server API client | [Client/ProfiAccountsService.cs](PersonalDataLogger/Client/ProfiAccountsService.cs) |
+| Steam Web API client | [Client/SteamService.cs](PersonalDataLogger/Client/SteamService.cs) |
+| Romanian time zone helpers | [Client/RomaniaTimeZone.cs](PersonalDataLogger/Client/RomaniaTimeZone.cs) |
 | Configuration model classes | [Configuration/](PersonalDataLogger/Configuration/) |
 | Logging operation definitions | [Logging/](PersonalDataLogger/Logging/) |
 
@@ -340,9 +373,12 @@ Two independent worker threads (`EmailWorker` and `TimedLogWorker`) run concurre
 | IMAP retrieval | [Service/Processors/EmailProcessor.cs](PersonalDataLogger/Service/Processors/EmailProcessor.cs) | `EmailProcessor.LogIn`, `GetAvailableEmails`, `LogOut` |
 | Timed-log scheduling | [Service/TimedLogWorker.cs](PersonalDataLogger/Service/TimedLogWorker.cs) | `TimedLogWorker.WatchTimedLogs`, `WatchTimedLog` |
 | Profi balance event | [Service/ProfiBalanceTimedLog.cs](PersonalDataLogger/Service/ProfiBalanceTimedLog.cs) | `ProfiBalanceTimedLog.GetNextExecution`, `Execute` |
+| Steam achievement event | [Service/SteamAchievementsTimedLog.cs](PersonalDataLogger/Service/SteamAchievementsTimedLog.cs) | `SteamAchievementsTimedLog.GetNextExecution`, `Execute` |
+| Timed-log schedule parsing | [Service/ScheduledTimes.cs](PersonalDataLogger/Service/ScheduledTimes.cs) | `ScheduledTimes.GetNextExecution` |
 | Platform transformations | [Service/Processors/](PersonalDataLogger/Service/Processors/) | `*Processor.ProcessEmail` |
-| Personal Log Manager client | [Client/PersonalLogManagerService.cs](PersonalDataLogger/Client/PersonalLogManagerService.cs) | `SendPersonalLogToManager`, `ConvertToRomanianTime` |
+| Personal Log Manager client | [Client/PersonalLogManagerService.cs](PersonalDataLogger/Client/PersonalLogManagerService.cs) | `SendPersonalLogToManager`, `GetLatestLogTimestamp` |
 | Profi account client | [Client/ProfiAccountsService.cs](PersonalDataLogger/Client/ProfiAccountsService.cs) | `GetEnabledAccountsBalance`, `CalculateEnabledAccountsBalance` |
+| Steam client | [Client/SteamService.cs](PersonalDataLogger/Client/SteamService.cs) | `GetAchievementsUnlockedSince` |
 | Configuration and data | [Configuration/](PersonalDataLogger/Configuration/), [Service/Models/](PersonalDataLogger/Service/Models/), [Client/](PersonalDataLogger/Client/) | Settings and DTO types |
 
 ## Test Reference
@@ -353,6 +389,8 @@ Two independent worker threads (`EmailWorker` and `TimedLogWorker`) run concurre
 | Profi API and balance aggregation | [ProfiAccountsServiceTests.cs](PersonalDataLogger.UnitTests/Client/ProfiAccountsServiceTests.cs) | `ProfiAccountsServiceTests` |
 | Profi request validation/data contract | [GetProfiAccountsRequestTests.cs](PersonalDataLogger.UnitTests/Client/GetProfiAccountsRequestTests.cs) | `GetProfiAccountsRequestTests` |
 | Daily schedule and timed event | [ProfiBalanceTimedLogTests.cs](PersonalDataLogger.UnitTests/Service/ProfiBalanceTimedLogTests.cs) | `ProfiBalanceTimedLogTests` |
+| Steam cutoff, achievement events, and schedule | [SteamAchievementsTimedLogTests.cs](PersonalDataLogger.UnitTests/Service/SteamAchievementsTimedLogTests.cs) | `SteamAchievementsTimedLogTests` |
+| Steam Web API retrieval and filtering | [SteamServiceTests.cs](PersonalDataLogger.UnitTests/Client/SteamServiceTests.cs) | `SteamServiceTests` |
 | Platform parsing and template mapping | [Service/Processors/](PersonalDataLogger.UnitTests/Service/Processors/) | Matching `*ProcessorTests` classes |
 | Email worker, IMAP lifecycle, timed worker, composition, and end-to-end flows | None | Coverage gap; no direct tests |
 

@@ -67,6 +67,7 @@ namespace PersonalDataLogger.IntegrationTests
                 CallBase = true
             };
             mockEmailWorker.Protected().Setup("WaitForNextPoll");
+            mockEmailWorker.Protected().Setup("WaitBeforeRetry", ItExpr.IsAny<TimeSpan>());
         }
 
         [TearDown]

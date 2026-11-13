@@ -46,7 +46,7 @@ dotnet run --project PersonalDataLogger/PersonalDataLogger.csproj
 
 ## ⚠️ Known Limitations
 
-- Transient IMAP connection failures are retried indefinitely at five-second intervals. Authentication, email processing, and checkpoint persistence failures are not retried and terminate the worker.
+- Transient IMAP connection failures are retried indefinitely at a configurable interval (`imapSettings.retryDelayMinutes`, minimum one minute). Authentication failures are not retried; checkpoint persistence failures are logged and the worker continues.
 - Events sent to the Personal Log Manager API are not queued locally or retried after an HTTP failure.
 
 ## 🖥️ System Requirements
@@ -100,7 +100,8 @@ Configuration example:
     "port": 993,
     "username": "user@example.local",
     "password": "<password>",
-    "maxEmailAge": 1800
+    "maxEmailAge": 1800,
+    "retryDelayMinutes": 5
   },
   "personalSettings": {
     "employerName": "My Employer"

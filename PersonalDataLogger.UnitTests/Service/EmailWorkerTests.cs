@@ -30,8 +30,12 @@ namespace PersonalDataLogger.UnitTests.Service
         [
             new IOException("The connection timed out."),
             new SocketException((int)SocketError.ConnectionReset),
+            new TimeoutException("The operation has timed out."),
             new ImapProtocolException("The server closed the connection."),
-            new ServiceNotConnectedException("The client is disconnected.")
+            new ServiceNotConnectedException("The client is disconnected."),
+            new ServiceNotAuthenticatedException("The client is not authenticated."),
+            new FolderNotOpenException("Inbox", FolderAccess.ReadOnly),
+            new ObjectDisposedException("ImapClient")
         ];
 
         [SetUp]
@@ -53,6 +57,7 @@ namespace PersonalDataLogger.UnitTests.Service
                 CallBase = true
             };
             emailWorker.Protected().Setup("WaitForNextPoll");
+            emailWorker.Protected().Setup("WaitBeforeRetry", ItExpr.IsAny<TimeSpan>());
         }
 
         [TestCaseSource(nameof(ConnectionFailures))]
@@ -81,7 +86,63 @@ namespace PersonalDataLogger.UnitTests.Service
             Assert.That(requestedUids[1], Is.EqualTo(requestedUids[0]));
             emailProcessor.Verify(processor => processor.LogIn(), Times.Exactly(2));
             emailProcessor.Verify(processor => processor.LogOut(), Times.Once);
-            emailWorker.Protected().Verify("WaitForNextPoll", Times.Once());
+            emailWorker.Protected().Verify("WaitBeforeRetry", Times.Once(), ItExpr.IsAny<TimeSpan>());
+            emailWorker.Protected().Verify("WaitForNextPoll", Times.Never());
+        }
+
+        [Test]
+        public void GivenAConfiguredRetryDelay_WhenReconnecting_ThenWaitsTheConfiguredDelay()
+        {
+            List<TimeSpan> retryDelays = [];
+            Mock<EmailWorker> workerWithDelay = BuildWorkerWithRetryDelay(12, retryDelays);
+
+            InvalidOperationException terminalFailure = new("The mailbox is unavailable.");
+            emailProcessor
+                .SetupSequence(processor => processor.GetAvailableEmails(It.IsAny<uint>()))
+                .Throws(new TimeoutException("The operation has timed out."))
+                .Throws(terminalFailure);
+
+            Assert.That(
+                () => workerWithDelay.Object.WatchEmails(),
+                Throws.Exception.SameAs(terminalFailure));
+            Assert.That(retryDelays, Is.EqualTo(new[] { TimeSpan.FromMinutes(12) }));
+        }
+
+        [TestCase(0)]
+        [TestCase(-30)]
+        public void GivenAnInvalidRetryDelay_WhenReconnecting_ThenWaitsTheMinimumDelay(
+            int retryDelayMinutes)
+        {
+            List<TimeSpan> retryDelays = [];
+            Mock<EmailWorker> workerWithDelay = BuildWorkerWithRetryDelay(
+                retryDelayMinutes,
+                retryDelays);
+
+            InvalidOperationException terminalFailure = new("The mailbox is unavailable.");
+            emailProcessor
+                .SetupSequence(processor => processor.GetAvailableEmails(It.IsAny<uint>()))
+                .Throws(new TimeoutException("The operation has timed out."))
+                .Throws(terminalFailure);
+
+            Assert.That(
+                () => workerWithDelay.Object.WatchEmails(),
+                Throws.Exception.SameAs(terminalFailure));
+            Assert.That(retryDelays, Is.EqualTo(new[] { TimeSpan.FromMinutes(1) }));
+        }
+
+        [Test]
+        public void GivenADisconnectedClient_WhenTheWatchLoopEnds_ThenTheFailureIsNotMaskedByLogOut()
+        {
+            InvalidOperationException terminalFailure = new("The mailbox is unavailable.");
+            emailProcessor.Setup(processor => processor.GetAvailableEmails(It.IsAny<uint>()))
+                .Throws(terminalFailure);
+            emailProcessor.Setup(processor => processor.LogOut())
+                .Throws(new ServiceNotConnectedException("The client is disconnected."));
+
+            Assert.That(
+                () => emailWorker.Object.WatchEmails(),
+                Throws.Exception.SameAs(terminalFailure));
+            emailProcessor.Verify(processor => processor.LogOut(), Times.Once);
         }
 
         [Test]
@@ -103,7 +164,8 @@ namespace PersonalDataLogger.UnitTests.Service
             emailProcessor.Verify(
                 processor => processor.GetAvailableEmails(It.IsAny<uint>()),
                 Times.Exactly(2));
-            emailWorker.Protected().Verify("WaitForNextPoll", Times.Exactly(2));
+            emailWorker.Protected().Verify("WaitBeforeRetry", Times.Exactly(2), ItExpr.IsAny<TimeSpan>());
+            emailWorker.Protected().Verify("WaitForNextPoll", Times.Never());
         }
 
         [TestCaseSource(nameof(ConnectionFailures))]
@@ -124,7 +186,8 @@ namespace PersonalDataLogger.UnitTests.Service
             emailProcessor.Verify(
                 processor => processor.GetAvailableEmails(It.IsAny<uint>()),
                 Times.Once);
-            emailWorker.Protected().Verify("WaitForNextPoll", Times.Once());
+            emailWorker.Protected().Verify("WaitBeforeRetry", Times.Once(), ItExpr.IsAny<TimeSpan>());
+            emailWorker.Protected().Verify("WaitForNextPoll", Times.Never());
         }
 
         [Test]
@@ -139,6 +202,7 @@ namespace PersonalDataLogger.UnitTests.Service
                 processor => processor.GetAvailableEmails(It.IsAny<uint>()),
                 Times.Never);
             emailWorker.Protected().Verify("WaitForNextPoll", Times.Never());
+            emailWorker.Protected().Verify("WaitBeforeRetry", Times.Never(), ItExpr.IsAny<TimeSpan>());
         }
 
         [Test]
@@ -154,6 +218,7 @@ namespace PersonalDataLogger.UnitTests.Service
                 processor => processor.GetAvailableEmails(It.IsAny<uint>()),
                 Times.Once);
             emailWorker.Protected().Verify("WaitForNextPoll", Times.Never());
+            emailWorker.Protected().Verify("WaitBeforeRetry", Times.Never(), ItExpr.IsAny<TimeSpan>());
         }
 
         [Test]
@@ -168,6 +233,32 @@ namespace PersonalDataLogger.UnitTests.Service
             emailProcessor.Verify(processor => processor.LogIn(), Times.Exactly(2));
             emailProcessor.Verify(processor => processor.LogOut(), Times.Exactly(2));
             emailWorker.Protected().Verify("WaitForNextPoll", Times.Never());
+        }
+
+        private Mock<EmailWorker> BuildWorkerWithRetryDelay(
+            int retryDelayMinutes,
+            List<TimeSpan> retryDelays)
+        {
+            Mock<EmailWorker> workerWithDelay = new(
+                Mock.Of<IAliExpressProcessor>(),
+                Mock.Of<IDiscordProcessor>(),
+                Mock.Of<IGandiProcessor>(),
+                Mock.Of<IGoogleProcessor>(),
+                Mock.Of<IOpsGenieEmailProcessor>(),
+                Mock.Of<IPayPalProcessor>(),
+                Mock.Of<IProfiProcessor>(),
+                emailProcessor.Object,
+                new ImapSettings { RetryDelayMinutes = retryDelayMinutes },
+                Mock.Of<ILogger>())
+            {
+                CallBase = true
+            };
+            workerWithDelay.Protected().Setup("WaitForNextPoll");
+            workerWithDelay.Protected()
+                .Setup("WaitBeforeRetry", ItExpr.IsAny<TimeSpan>())
+                .Callback<TimeSpan>(retryDelays.Add);
+
+            return workerWithDelay;
         }
     }
 }

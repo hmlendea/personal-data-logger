@@ -11,5 +11,7 @@ namespace PersonalDataLogger.Configuration
         public string Password { get; set; }
 
         public int MaxEmailAge { get; set; }
+
+        public int RetryDelayMinutes { get; set; } = 5;
     }
 }

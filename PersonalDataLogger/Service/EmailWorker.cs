@@ -5,7 +5,6 @@ using System.Text.Json;
 using System.Threading;
 
 using MailKit;
-using MailKit.Net.Imap;
 using PersonalDataLogger.Logging;
 using NuciLog.Core;
 using PersonalDataLogger.Configuration;
@@ -27,13 +26,22 @@ namespace PersonalDataLogger.Service
         ILogger logger)
         : IEmailWorker
     {
-        const string CheckpointFileName = "imap-checkpoint.json";
+        static readonly JsonSerializerOptions CheckpointSerializerOptions = new()
+        {
+            WriteIndented = true
+        };
 
         readonly string checkpointFilePath = Path.Combine(AppContext.BaseDirectory, CheckpointFileName);
 
         private bool isLoggedIn;
 
+        static string CheckpointFileName => "imap-checkpoint.json";
+        static int MinimumRetryDelayMinutes => 1;
+
         private static TimeSpan PollInterval => TimeSpan.FromSeconds(5);
+
+        private TimeSpan RetryDelay => TimeSpan.FromMinutes(
+            Math.Max(MinimumRetryDelayMinutes, imapSettings.RetryDelayMinutes));
 
         public void WatchEmails()
         {
@@ -46,7 +54,7 @@ namespace PersonalDataLogger.Service
 
             try
             {
-                while(true)
+                while (true)
                 {
                     checkpoint = ProcessAvailableEmails(checkpoint);
 
@@ -64,12 +72,19 @@ namespace PersonalDataLogger.Service
             }
             finally
             {
-                isLoggedIn = false;
-                emailProcessor.LogOut();
+                LogOut();
             }
         }
 
         protected virtual void WaitForNextPoll() => Thread.Sleep(PollInterval);
+
+        protected virtual void WaitBeforeRetry(TimeSpan retryDelay) => Thread.Sleep(retryDelay);
+
+        private static bool IsConnectionFailure(Exception exception)
+            => exception is IOException or SocketException or TimeoutException or
+                ProtocolException or ServiceNotConnectedException or
+                ServiceNotAuthenticatedException or FolderNotOpenException or
+                ObjectDisposedException;
 
         private AvailableEmailBatch GetAvailableEmails(uint lastProcessedUid)
         {
@@ -85,19 +100,35 @@ namespace PersonalDataLogger.Service
 
                     return emailProcessor.GetAvailableEmails(lastProcessedUid);
                 }
-                catch (Exception exception) when (
-                    exception is IOException or SocketException or
-                    ImapProtocolException or ServiceNotConnectedException)
+                catch (Exception exception) when (IsConnectionFailure(exception))
                 {
                     isLoggedIn = false;
                     logger.Warn(
                         MyOperation.WatchEmails,
                         OperationStatus.InProgress,
-                        "The IMAP connection failed. Reconnecting after the polling delay.",
+                        "The IMAP connection failed. Reconnecting after the configured retry delay.",
                         exception);
                 }
 
-                WaitForNextPoll();
+                WaitBeforeRetry(RetryDelay);
+            }
+        }
+
+        private void LogOut()
+        {
+            isLoggedIn = false;
+
+            try
+            {
+                emailProcessor.LogOut();
+            }
+            catch (Exception exception)
+            {
+                logger.Warn(
+                    MyOperation.WatchEmails,
+                    OperationStatus.InProgress,
+                    "Failed to log out of the IMAP server. The connection is dropped regardless.",
+                    exception);
             }
         }
 
@@ -197,12 +228,20 @@ namespace PersonalDataLogger.Service
 
         void SaveCheckpoint(EmailCheckpoint checkpoint)
         {
-            string json = JsonSerializer.Serialize(checkpoint, new JsonSerializerOptions
+            try
             {
-                WriteIndented = true
-            });
+                string json = JsonSerializer.Serialize(checkpoint, CheckpointSerializerOptions);
 
-            File.WriteAllText(checkpointFilePath, json);
+                File.WriteAllText(checkpointFilePath, json);
+            }
+            catch (Exception exception)
+            {
+                logger.Error(
+                    MyOperation.WatchEmails,
+                    OperationStatus.Failure,
+                    "Failed to persist the email checkpoint.",
+                    exception);
+            }
         }
     }
 }

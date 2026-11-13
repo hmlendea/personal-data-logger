@@ -86,7 +86,7 @@ graph TD
     Compose -->|Profi Configured| Timed["TimedLogWorker.WatchTimedLogs"]
     Email --> CheckCP["Load Checkpoint<br/>(imap-checkpoint.json)"]
     CheckCP -->|Fetch| IMAPFetch["EmailProcessor.GetAvailableEmails<br/>(by UID)"]
-    IMAPFetch -->|Connection failure| Reconnect["Wait 5s and reconnect<br/>Retry the same UID"]
+    IMAPFetch -->|Connection failure| Reconnect["Wait retryDelayMinutes<br/>and reconnect<br/>Retry the same UID"]
     Reconnect --> IMAPFetch
     IMAPFetch -->|For Each Email| Extract["Route to Platform Processor<br/>(AliExpress, Gandi, etc.)"]
     Extract -->|If Matches| ParseEvent["Extract Event Data<br/>(Username, IP, Prize, etc.)"]
@@ -109,7 +109,7 @@ The principal runtime sequence is:
 2. **Worker Startup**: Two independent `Task.Run()` calls start `EmailWorker.WatchEmails()` and, when the Profi integration is configured, `TimedLogWorker.WatchTimedLogs()`. The main thread waits for the first worker to complete or throw.
 3. **Email Polling Loop**: `EmailWorker` loads the checkpoint (UID validity and last processed UID) at startup and polls IMAP every 5 seconds. Each iteration retrieves emails newer than the checkpoint, routes each email to a platform-specific processor, and saves the checkpoint after successful processing.
 4. **Scheduled Execution Loop**: `TimedLogWorker` iterates through registered `ITimedLog` implementations, calculates the next execution time for each, sleeps until that time, and executes the log (currently only `ProfiBalanceTimedLog`, using the comma-separated `profiBotServerSettings.scheduledHours` values in local time).
-5. **Error Handling**: IMAP connection failures during login or retrieval are logged and retried after 5 seconds, using a fresh client and the same requested UID. Authentication, command, processing, and checkpoint-write failures are not retried; unhandled exceptions reach the composition root, are logged as fatal, and terminate the process.
+5. **Error Handling**: IMAP connection failures during login or retrieval are logged and retried after the configured retry delay (`imapSettings.retryDelayMinutes`, minimum one minute), using a fresh client and the same requested UID. Authentication and command failures are not retried; checkpoint-write failures are logged and the worker continues. Other unhandled exceptions reach the composition root, are logged as fatal, and terminate the process.
 
 ## 🧩 Components
 
@@ -161,7 +161,7 @@ graph LR
 
 | Interface or Integration | Direction | Contract | Owner | Failure Semantics |
 |--------------------------|-----------|----------|-------|-------------------|
-| IMAP Server | Inbound | IMAP protocol (port 993 implicit TLS); fetch emails by UID range; credentials from `ImapSettings` | `EmailProcessor`; retry policy in `EmailWorker` | I/O, socket, IMAP protocol, and disconnected-client failures during login or retrieval trigger reconnection after 5 seconds, without a retry limit or UID advancement. Other failures propagate. |
+| IMAP Server | Inbound | IMAP protocol (port 993 implicit TLS); fetch emails by UID range; credentials from `ImapSettings` | `EmailProcessor`; retry policy in `EmailWorker` | I/O, socket, timeout, IMAP protocol, authentication-state, and disconnected-client failures during login or retrieval trigger reconnection after the configured retry delay, without a retry limit or UID advancement. Other failures propagate. |
 | Personal Log Manager API | Outbound | HTTP POST to `/event` endpoint; HMAC-SHA256 authentication; JSON body with event type, timestamp, and data; timezone converted to `Europe/Bucharest` | `PersonalLogManagerService` | HTTP errors logged; event discarded (no retry or queue); polling continues |
 | Profi Bot Server API | Outbound | HTTP GET to `/Users/{username}/accounts`; HMAC-SHA256 authentication; JSON response with account objects (ID, balance, currency, isEnabled) | `ProfiAccountsService` | HTTP errors logged; timed log execution fails; `TimedLogWorker` continues to next scheduled log |
 | Email Platform Notifications | Inbound | Email protocol (IMAP); subject and body contain platform-specific signals (e.g., "Your AliExpress verification code", "security alert", or "alertă de securitate") | Platform-specific processors | Non-matching emails ignored; unparseable data fields logged as warnings; event sent with partial or default data |
@@ -268,7 +268,7 @@ Verification points of architectural significance:
 - **Platform-specific extraction**: Send test emails to the IMAP inbox matching each processor's signal (e.g., AliExpress verification code); verify that events are emitted with correct platform and data fields.
 - **Timezone conversion**: Verify that event timestamps are converted to `Europe/Bucharest` time in API requests.
 - **Timed log execution**: Advance the system clock to 06:30; verify that `ProfiBalanceTimedLog` executes and sends an event with the summed enabled-account balance.
-- **Error handling**: Disconnect the IMAP server mid-polling; verify that connection failures are logged, the process remains active, and retrieval resumes from the same checkpoint after reconnection. Verify that authentication and other non-retryable failures still terminate the process.
+- **Error handling**: Disconnect the IMAP server mid-polling; verify that connection failures are logged, the process remains active, and retrieval resumes from the same checkpoint after reconnection. Verify that authentication failures still terminate the process.
 
 Execute the principal automated verification with:
 
@@ -290,7 +290,7 @@ dotnet test personal-data-logger.slnx
 
 ### Error Handling
 
-External client failures are logged at their owning boundary and rethrown. `EmailWorker` retries I/O, socket, IMAP protocol, and disconnected-client exceptions only around IMAP login and retrieval. Each failure produces a warning and a five-second delay, followed by a fresh login and a retry with the same requested UID. The retry boundary excludes email dispatch and checkpoint writes. During scheduled execution, `TimedLogWorker` records a timed-log failure and continues its loop; it has no retry loop or fallback. Platform processors do not throw on unparseable email data; they emit partial events with default or warning-logged fields.
+External client failures are logged at their owning boundary and rethrown. `EmailWorker` retries I/O, socket, timeout, IMAP protocol, authentication-state, and disconnected-client exceptions only around IMAP login and retrieval. Each failure produces a warning and a configurable delay (`imapSettings.retryDelayMinutes`, minimum one minute), followed by a fresh login and a retry with the same requested UID. The retry boundary excludes email dispatch and checkpoint writes; a checkpoint-write failure is logged and the loop continues. During scheduled execution, `TimedLogWorker` records a timed-log failure and continues its loop; it has no retry loop or fallback. Platform processors do not throw on unparseable email data; they emit partial events with default or warning-logged fields.
 
 ### Observability
 

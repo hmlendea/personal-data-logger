@@ -21,6 +21,7 @@ This document maps production source areas back to the documentation that explai
 | [PersonalDataLogger.UnitTests/](../PersonalDataLogger.UnitTests/) | NUnit unit-test project | [feature-map.md](feature-map.md), [documentation-coverage.md](documentation-coverage.md) | The files in this directory |
 | [.github/workflows/dotnet.yml](../.github/workflows/dotnet.yml) | CI restore/build/test | [README.md](../README.md), [feature-map.md](feature-map.md) | Workflow execution |
 | [.github/workflows/github-release.yml](../.github/workflows/github-release.yml) | Release build and asset upload | [README.md](../README.md), [feature-map.md](feature-map.md) | Workflow execution |
+| [.github/workflows/security.yml](../.github/workflows/security.yml) | Dependency vulnerability checks and CodeQL analysis | [README.md](../README.md), [SECURITY.md](../SECURITY.md), [feature-map.md](feature-map.md) | Workflow execution |
 
 ## Unmapped Production Behaviour
 

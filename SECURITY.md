@@ -9,6 +9,7 @@ This policy defines how to report vulnerabilities in Personal Data Logger, the s
 - [Reporting a Vulnerability](#-reporting-a-vulnerability)
 - [Scope](#-scope)
 - [Disclosure Policy](#-disclosure-policy)
+- [Automated Security Scanning](#-automated-security-scanning)
 
 ## 🛡️ Supported Versions
 
@@ -33,6 +34,8 @@ To report a vulnerability:
 
 ## 📌 Scope
 
+The original maintainers are not responsible for changes, modifications, or security issues introduced by downstream forks.
+
 The subsequent report categories are in scope for this repository:
 - Vulnerabilities in application code, configuration handling, or bundled dependencies
 - Exposure or unauthorised modification of credentials, personal data, email content, or authenticated API communications caused by this project
@@ -48,3 +51,11 @@ This project follows coordinated disclosure:
 2. A remediation plan is prepared and validated.
 3. Public disclosure is published after a fix, mitigation, or agreed risk decision is available.
 4. Credit is attributed in accordance with reporter preference and project policy.
+
+## 🔍 Automated Security Scanning
+
+This repository runs automated security scans on every push and pull request to `master`, and on a weekly schedule. The scan includes:
+- **Vulnerable dependencies** Transitive and direct NuGet package vulnerabilities are reported by `dotnet list package --vulnerable --include-transitive`.
+- **CodeQL analysis** C# source is analysed for security defects before the results are uploaded to GitHub code scanning.
+
+Results are published to the [Security](https://github.com/hmlendea/personal-data-logger/security) tab and the [Actions](https://github.com/hmlendea/personal-data-logger/actions/workflows/security.yml) workflow page.

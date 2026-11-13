@@ -74,6 +74,7 @@ The timed log executes at the next local 06:30, obtains accounts, sums enabled-a
 | CI verification | [.github/workflows/dotnet.yml](../.github/workflows/dotnet.yml) | Restore, build, and `dotnet test` on push/PR |
 | Release distribution | [.github/workflows/github-release.yml](../.github/workflows/github-release.yml) | Published release triggers the shared release script, then uploads the runtime archives |
 | Release packaging | [.github/workflows/github-release.yml](../.github/workflows/github-release.yml) | Published release builds the runtime archives and uploads them; no automated release test |
+| Security scanning | [.github/workflows/security.yml](../.github/workflows/security.yml) | Vulnerable-package listing and CodeQL analysis on push/PR and weekly schedule |
 
 ## Algorithms
 

@@ -18,6 +18,7 @@ Personal Data Logger is a .NET 10 background service that polls an IMAP inbox, p
 - [Project Structure](#project-structure)
 - [Architecture](#architecture)
 - [Development](#development)
+- [GitHub Actions](#github-actions)
 - [Deployment](#deployment)
 - [Contributing](#contributing)
 - [Code of Conduct](#code-of-conduct)
@@ -189,13 +190,13 @@ dotnet test personal-data-logger.slnx
 
 ### Release
 
-The repository includes `release.sh`, which delegates to the upstream deployment script used by the project maintainer.
+Releases are published from GitHub releases. Publishing a release whose tag (for example `v1.2.3`) marks the version triggers the [GitHub Release](https://github.com/hmlendea/personal-data-logger/blob/master/.github/workflows/github-release.yml) workflow, which builds the versioned archives for every supported runtime and attaches them to that release.
 
 ```bash
-bash ./release.sh 1.0.0
+gh release create v1.2.3 --title "v1.2.3" --generate-notes
 ```
 
-This script downloads and executes an external release helper from `https://raw.githubusercontent.com/hmlendea/deployment-scripts/master/release/dotnet/10.0.sh`.
+The workflow downloads and executes an external build helper from `https://raw.githubusercontent.com/hmlendea/dotnet-release-scripts/master/dotnet/<version>.sh`.
 
 **Note:** Piping into `bash` is an intensely controversial topic. Please review any external scripts before running them in your environment!
 
@@ -204,6 +205,13 @@ This script downloads and executes an external release helper from `https://raw.
 | Package | Version | Scope | Purpose |
 |---------|---------|-------|---------|
 | NuciLog | Latest | Runtime | Structured logging and diagnostics |
+
+## ⚙️ GitHub Actions
+
+| Workflow | Purpose | What it does |
+|----------|---------|--------------|
+| [ .NET ](https://github.com/hmlendea/personal-data-logger/blob/master/.github/workflows/dotnet.yml) | Continuous integration | Restores, builds, and tests the solution on pushes and pull requests to `master` |
+| [ GitHub Release ](https://github.com/hmlendea/personal-data-logger/blob/master/.github/workflows/github-release.yml) | Release distribution | Builds self-contained archives for each supported runtime and attaches them to the published GitHub release |
 
 ## 🚢 Deployment
 

@@ -20,7 +20,7 @@ This document maps production source areas back to the documentation that explai
 | [PersonalDataLogger/PersonalDataLogger.csproj](../PersonalDataLogger/PersonalDataLogger.csproj) | Executable target and package references | [README.md](../README.md), [ARCHITECTURE.md](../ARCHITECTURE.md) | CI build |
 | [PersonalDataLogger.UnitTests/](../PersonalDataLogger.UnitTests/) | NUnit unit-test project | [feature-map.md](feature-map.md), [documentation-coverage.md](documentation-coverage.md) | The files in this directory |
 | [.github/workflows/dotnet.yml](../.github/workflows/dotnet.yml) | CI restore/build/test | [README.md](../README.md), [feature-map.md](feature-map.md) | Workflow execution |
-| [release.sh](../release.sh) | Release delegation | [README.md](../README.md), [feature-map.md](feature-map.md) | No automated release test |
+| [.github/workflows/github-release.yml](../.github/workflows/github-release.yml) | Release build and asset upload | [README.md](../README.md), [feature-map.md](feature-map.md) | Workflow execution |
 
 ## Unmapped Production Behaviour
 

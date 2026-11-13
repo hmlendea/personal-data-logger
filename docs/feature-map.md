@@ -72,7 +72,8 @@ The timed log executes at the next local 06:30, obtains accounts, sums enabled-a
 | Dependency registration | [Program.cs](../PersonalDataLogger/Program.cs), `Program.CreateIOC` | No composition-root tests |
 | Structured operations | [MyOperation.cs](../PersonalDataLogger/Logging/MyOperation.cs), [MyLogInfoKey.cs](../PersonalDataLogger/Logging/MyLogInfoKey.cs) | Exercised indirectly by service tests |
 | CI verification | [.github/workflows/dotnet.yml](../.github/workflows/dotnet.yml) | Restore, build, and `dotnet test` on push/PR |
-| Release packaging | [release.sh](../release.sh) | External deployment helper; no automated release test |
+| Release distribution | [.github/workflows/github-release.yml](../.github/workflows/github-release.yml) | Published release triggers the shared release script, then uploads the runtime archives |
+| Release packaging | [.github/workflows/github-release.yml](../.github/workflows/github-release.yml) | Published release builds the runtime archives and uploads them; no automated release test |
 
 ## Algorithms
 

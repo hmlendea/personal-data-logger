@@ -21,7 +21,7 @@ This is the traceability audit for the current repository. It records both direc
 | Profi account retrieval and sum | `ProfiBalanceTimedLog.Execute` | `ProfiAccountsService.GetEnabledAccountsBalance` | Request/response/account DTOs | Conditional `CreateIOC` registration | `ProfiAccountsServiceTests`, `GetProfiAccountsRequestTests` | Unit covered; live boundary gap |
 | Configuration binding | `Program.CreateIOC` | `ConfigurationBuilder`, `config.Bind` | `appsettings.json`, settings POCOs | Composition root | None | Documented; validation gap |
 | Logging and operations | All workers/clients | `MyOperation`, `MyLogInfoKey`, injected `ILogger` calls | `NuciLoggerSettings` | `Program.CreateIOC` | Indirect only | Documented; no direct tests |
-| CI and release | GitHub workflow/release script | `dotnet.yml`, `release.sh` | Project files and external release script | GitHub Actions | CI build/test | Documented |
+| CI and release | GitHub workflows | `dotnet.yml`, `github-release.yml` | Project files and external build helper | GitHub Actions | CI build/test; release asset publication | Documented |
 
 ## Algorithm Audit
 
@@ -48,7 +48,6 @@ All substantial production areas are indexed in [code-map.md](code-map.md). The 
 - No integration or end-to-end test project exists.
 - No direct tests cover `Program`, `EmailProcessor`, or `TimedLogWorker`. `EmailWorker` tests cover connection retries, the configured retry delay, UID retention across failed fetches, logout fault tolerance, and lifecycle, but not successful dispatch or checkpoint persistence.
 - No automated check validates configuration binding, required secrets, or conditional Profi registration.
-- No automated release/deployment test validates the external script invoked by `release.sh`.
 - External API failure, retry absence, checkpoint file permissions, and IMAP UID reset behaviour are not covered by end-to-end tests.
 
 These are documented limitations, not claims of complete coverage.

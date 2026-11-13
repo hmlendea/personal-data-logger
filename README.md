@@ -1,6 +1,7 @@
 [![Donate](https://img.shields.io/badge/-%E2%99%A5%20Donate-%23ff69b4)](https://hmlendea.go.ro/funding)
 [![Latest Release](https://img.shields.io/github/v/release/hmlendea/personal-data-logger)](https://github.com/hmlendea/personal-data-logger/releases/latest)
 [![Build Status](https://github.com/hmlendea/personal-data-logger/actions/workflows/dotnet.yml/badge.svg)](https://github.com/hmlendea/personal-data-logger/actions/workflows/dotnet.yml)
+[![Security Scan](https://github.com/hmlendea/personal-data-logger/actions/workflows/security.yml/badge.svg)](https://github.com/hmlendea/personal-data-logger/actions/workflows/security.yml)
 [![License](https://img.shields.io/github/license/hmlendea/personal-data-logger)](https://github.com/hmlendea/personal-data-logger/blob/master/LICENSE)
 
 # Personal Data Logger
@@ -212,6 +213,7 @@ The workflow downloads and executes an external build helper from `https://raw.g
 |----------|---------|--------------|
 | [ .NET ](https://github.com/hmlendea/personal-data-logger/blob/master/.github/workflows/dotnet.yml) | Continuous integration | Restores, builds, and tests the solution on pushes and pull requests to `master` |
 | [ GitHub Release ](https://github.com/hmlendea/personal-data-logger/blob/master/.github/workflows/github-release.yml) | Release distribution | Builds self-contained archives for each supported runtime and attaches them to the published GitHub release |
+| [ Security ](https://github.com/hmlendea/personal-data-logger/blob/master/.github/workflows/security.yml) | Security scanning | Runs dependency-vulnerability checks and CodeQL analysis on pushes, pull requests, and a weekly schedule |
 
 ## 🚢 Deployment
 
@@ -242,7 +244,9 @@ See the [Code of Conduct](./CODE_OF_CONDUCT.md) for the standards of conduct exp
 
 ## 🔒 Security
 
-Personal Data Logger handles sensitive configuration including API keys, HMAC secrets, and IMAP credentials. For information on reporting security vulnerabilities, see [SECURITY.md](./SECURITY.md).
+Personal Data Logger handles sensitive configuration including API keys, HMAC secrets, and IMAP credentials.
+
+For information on reporting security vulnerabilities, see the [Security Policy](./SECURITY.md).
 
 ## 🛡️ Privacy and Data
 

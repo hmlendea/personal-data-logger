@@ -21,7 +21,7 @@ This is the traceability audit for the current repository. It records both direc
 | Profi account retrieval and sum | `ProfiBalanceTimedLog.Execute` | `ProfiAccountsService.GetEnabledAccountsBalance` | Request/response/account DTOs | Conditional `CreateIOC` registration | `ProfiAccountsServiceTests`, `GetProfiAccountsRequestTests` | Unit covered; live boundary gap |
 | Configuration binding | `Program.CreateIOC` | `ConfigurationBuilder`, `config.Bind` | `appsettings.json`, settings POCOs | Composition root | None | Documented; validation gap |
 | Logging and operations | All workers/clients | `MyOperation`, `MyLogInfoKey`, injected `ILogger` calls | `NuciLoggerSettings` | `Program.CreateIOC` | Indirect only | Documented; no direct tests |
-| CI and release | GitHub workflows | `dotnet.yml`, `github-release.yml` | Project files and external build helper | GitHub Actions | CI build/test; release asset publication | Documented |
+| CI, release, and security | GitHub workflows | `dotnet.yml`, `github-release.yml`, `security.yml` | Project files and external build helper | GitHub Actions | CI build/test; release asset publication; dependency and CodeQL scanning | Documented |
 
 ## Algorithm Audit
 
